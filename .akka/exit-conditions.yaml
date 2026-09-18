@@ -1,0 +1,108 @@
+mode: enforced
+developer:
+- id: FUNC-GREETER-ROTATION-NO-REPEAT
+  tier: product
+  dod_type: functional
+  provenance: ""
+  invariant: no language is greeted twice in a session until every pool language has
+    been used at least once
+  signal: ""
+  probe: ""
+  pass: ""
+  autonomy: auto
+  default_level: ""
+  auditor:
+    run:
+    - mvn
+    - -q
+    - test
+    - -Dtest=GreeterRotationTest
+    applies_to:
+      requirement: FR-003
+      module: greeter-agent
+- id: FUNC-GREETER-SESSION-ISOLATION
+  tier: product
+  dod_type: functional
+  provenance: ""
+  invariant: a session's used-language history is never influenced by, or leaked into,
+    another session's history
+  signal: ""
+  probe: ""
+  pass: ""
+  autonomy: auto
+  default_level: ""
+  auditor:
+    run:
+    - mvn
+    - -q
+    - test
+    - -Dtest=GreeterSessionIsolationTest
+    applies_to:
+      requirement: FR-005
+      module: greeter-agent
+- id: FUNC-GREETER-POOL-EXHAUSTION-RECOVERY
+  tier: product
+  dod_type: functional
+  provenance: ""
+  invariant: once every pool language has been used in a session, the agent continues
+    to return valid greetings by restarting the rotation least-recently-used-first
+  signal: ""
+  probe: ""
+  pass: ""
+  autonomy: auto
+  default_level: ""
+  auditor:
+    run:
+    - mvn
+    - -q
+    - test
+    - -Dtest=GreeterPoolExhaustionTest
+    applies_to:
+      requirement: FR-006
+      module: greeter-agent
+- id: FUNC-GREETER-REPLY-GREETING-ONLY
+  tier: product
+  dod_type: functional
+  provenance: ""
+  invariant: every reply consists solely of a greeting and never addresses the substance
+    of the user's message
+  signal: ""
+  probe: ""
+  pass: ""
+  autonomy: auto
+  default_level: ""
+  auditor:
+    run:
+    - mvn
+    - -q
+    - test
+    - -Dtest=GreeterReplyScopeTest
+    applies_to:
+      requirement: FR-001
+      module: greeter-agent
+- id: FUNC-GREETER-CONCURRENT-TURN-SAFETY
+  tier: product
+  dod_type: functional
+  provenance: ""
+  invariant: concurrent turns in the same session never select the same already-used
+    language nor corrupt the recorded used-language history
+  signal: ""
+  probe: ""
+  pass: ""
+  autonomy: auto
+  default_level: ""
+  auditor:
+    run:
+    - mvn
+    - -q
+    - test
+    - -Dtest=GreeterConcurrencyTest
+    applies_to:
+      requirement: FR-008
+      module: greeter-agent
+approved_auditors:
+  FUNC-GREETER-CONCURRENT-TURN-SAFETY: 3799fe6d5648f52690b5ca44fae68521bb4af2a3dc4986b520e5d94f7c0d18e4
+  FUNC-GREETER-POOL-EXHAUSTION-RECOVERY: 9bb6ea08fccb5f849c76114377dc76848f85cb866b86da0f092adf7413380708
+  FUNC-GREETER-REPLY-GREETING-ONLY: 423ed0b0119221f07cec10b77cf5876ef75a336bcfa174cdefc5d6b2d41ef553
+  FUNC-GREETER-ROTATION-NO-REPEAT: df5bc92f10a23442c9e6590ff48d6a391cc08a99de806a87a97533dce6cdadbe
+  FUNC-GREETER-SESSION-ISOLATION: b0843a0e36344000a5c398ee853999560fad8fb35604e550fc3759d4f9e67463
