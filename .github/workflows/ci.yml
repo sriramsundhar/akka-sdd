@@ -5,9 +5,10 @@ concurrency:
   cancel-in-progress: true
 
 on:
+  # Only push, not pull_request: a same-repo PR shares its commit with the
+  # source branch, so adding pull_request here would run the workflow twice
+  # for the same commit.
   push:
-  pull_request:
-    branches: [main]
 
 permissions:
   contents: read
@@ -24,6 +25,37 @@ jobs:
           java-version: "25"
           distribution: "temurin"
           cache: "maven"
+
+      - name: Configure Akka Maven repository
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml <<EOF
+          <settings xmlns="http://maven.apache.org/SETTINGS/1.2.0">
+            <profiles>
+              <profile>
+                <id>akka-profile</id>
+                <activation><activeByDefault>true</activeByDefault></activation>
+                <repositories>
+                  <repository>
+                    <id>akka-repository</id>
+                    <url>${AKKA_REPOSITORY_URL}</url>
+                  </repository>
+                </repositories>
+                <pluginRepositories>
+                  <pluginRepository>
+                    <id>akka-plugin-repository</id>
+                    <url>${AKKA_REPOSITORY_URL}</url>
+                  </pluginRepository>
+                </pluginRepositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>akka-profile</activeProfile>
+            </activeProfiles>
+          </settings>
+          EOF
+        env:
+          AKKA_REPOSITORY_URL: ${{ secrets.AKKA_REPOSITORY_URL }}
 
       - name: Compile
         run: mvn -B compile
@@ -51,6 +83,37 @@ jobs:
           java-version: "25"
           distribution: "temurin"
           cache: "maven"
+
+      - name: Configure Akka Maven repository
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml <<EOF
+          <settings xmlns="http://maven.apache.org/SETTINGS/1.2.0">
+            <profiles>
+              <profile>
+                <id>akka-profile</id>
+                <activation><activeByDefault>true</activeByDefault></activation>
+                <repositories>
+                  <repository>
+                    <id>akka-repository</id>
+                    <url>${AKKA_REPOSITORY_URL}</url>
+                  </repository>
+                </repositories>
+                <pluginRepositories>
+                  <pluginRepository>
+                    <id>akka-plugin-repository</id>
+                    <url>${AKKA_REPOSITORY_URL}</url>
+                  </pluginRepository>
+                </pluginRepositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>akka-profile</activeProfile>
+            </activeProfiles>
+          </settings>
+          EOF
+        env:
+          AKKA_REPOSITORY_URL: ${{ secrets.AKKA_REPOSITORY_URL }}
 
       - name: Build service image
         run: mvn -B clean install -DskipTests
