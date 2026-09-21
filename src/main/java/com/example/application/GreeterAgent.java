@@ -1,6 +1,7 @@
 package com.example.application;
 
 import akka.javasdk.agent.Agent;
+import akka.javasdk.agent.ModelProvider;
 import akka.javasdk.annotations.Component;
 
 /** Phrases a short greeting in a given language. Which language to use is decided elsewhere (see SessionLanguageEntity). */
@@ -16,6 +17,7 @@ public class GreeterAgent extends Agent {
 
   public Effect<String> greet(String languageDisplayName) {
     return effects()
+        .model(ModelProvider.fromConfig("litellm"))
         .systemMessage(SYSTEM_MESSAGE)
         .userMessage("Language: " + languageDisplayName)
         .thenReply();
