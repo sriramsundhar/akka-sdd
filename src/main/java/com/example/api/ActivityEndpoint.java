@@ -3,11 +3,14 @@ package com.example.api;
 import java.util.UUID;
 
 import com.example.application.ActivityAgent;
+import com.example.application.PreferencesEntity;
 
+import akka.http.javadsl.model.HttpResponse;
 import akka.javasdk.annotations.Acl;
 import akka.javasdk.annotations.http.HttpEndpoint;
 import akka.javasdk.annotations.http.Post;
 import akka.javasdk.client.ComponentClient;
+import akka.javasdk.http.HttpResponses;
 
 // Opened up for access from the public internet to make the service easy to try out.
 // For actual services meant for production this must be carefully considered,
@@ -25,13 +28,26 @@ public class ActivityEndpoint {
     this.componentClient = componentClient;
   }
 
-  @Post("/activities")
-  public String suggestActivities(Request request) {
+  @Post("/activities/{userId}")
+  public String suggestActivities(String userId, Request request) {
     var sessionId = UUID.randomUUID().toString();
     return componentClient
         .forAgent()
         .inSession(sessionId)
         .method(ActivityAgent::suggestActivity)
-        .invoke(request.message());
+        .invoke(new ActivityAgent.Request(userId, request.message));
+  }
+
+  public record AddPreference(String preference) {
+  }
+
+  @Post("/preferences/{userId}")
+  public HttpResponse addPreference(String userId, AddPreference request) {
+    componentClient
+        .forEventSourcedEntity(userId)
+        .method(PreferencesEntity::addPreference)
+        .invoke(new PreferencesEntity.AddPreference(request.preference()));
+
+    return HttpResponses.created();
   }
 }
