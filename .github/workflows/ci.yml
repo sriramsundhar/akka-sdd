@@ -143,13 +143,11 @@ jobs:
         run: mvn -B verify
 
       - name: Build service image and jar
-        run: mvn -B clean install -DskipTests
-
-      - name: Resolve image tag
         id: image
         run: |
-          TAG=$(mvn -q help:evaluate -Dexpression=docker.tag -DforceStdout)
+          TAG="${{ steps.version.outputs.release }}-$(date -u +%Y%m%d%H%M%S)"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          mvn -B clean install -DskipTests -Ddocker.tag="$TAG"
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
