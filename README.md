@@ -49,14 +49,23 @@ and release, following the pattern in
   tests), and builds the service image to confirm it is buildable.
 - **`release`** — runs only on a push to `main` (`needs: build`). It does **not**
   deploy the service. Instead it:
-  1. Strips `-SNAPSHOT` from the `pom.xml` version (e.g. `1.0-SNAPSHOT` -> `1.0`),
-     commits that as `chore(release): 1.0 [skip ci]`, and tags it `v1.0`.
-  2. Builds and tests the release-versioned jar and container image.
-  3. Pushes the image to GHCR as `ghcr.io/<owner>/<repo>:1.0` and `:latest`.
-  4. Bumps `pom.xml` to the next snapshot (e.g. `1.1-SNAPSHOT`), committed as
-     `chore: prepare for next development iteration (1.1-SNAPSHOT) [skip ci]`.
-  5. Pushes both commits and the tag back to `main`, then creates a GitHub
+  1. Checks `pom.xml`'s version matches semantic versioning,
+     `MAJOR.MINOR.PATCH-SNAPSHOT` (e.g. `1.1.0-SNAPSHOT`); fails fast with a
+     clear error otherwise.
+  2. Strips `-SNAPSHOT` (e.g. `1.1.0-SNAPSHOT` -> `1.1.0`), commits that as
+     `chore(release): 1.1.0 [skip ci]`, and tags it `v1.1.0`.
+  3. Builds and tests the release-versioned jar and container image.
+  4. Pushes the image to GHCR as `ghcr.io/<owner>/<repo>:1.1.0` and `:latest`.
+  5. Bumps `pom.xml` to the next **patch** snapshot (e.g. `1.1.1-SNAPSHOT`),
+     committed as
+     `chore: prepare for next development iteration (1.1.1-SNAPSHOT) [skip ci]`.
+  6. Pushes both commits and the tag back to `main`, then creates a GitHub
      Release for the tag with the built jar attached.
+
+  Every merge to `main` is a **patch** release. To ship a minor or major
+  release instead, edit `pom.xml`'s `<version>` to the desired
+  `MAJOR.MINOR.0-SNAPSHOT` in the PR before merging — the release job picks
+  that up and continues patch-bumping from there.
 
   The `[skip ci]` marker on both commits stops GitHub from re-triggering this
   workflow on its own pushes.

@@ -128,7 +128,14 @@ jobs:
         id: version
         run: |
           CURRENT=$(mvn -q help:evaluate -Dexpression=project.version -DforceStdout)
+          if [[ ! "$CURRENT" =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
+            echo "::error::pom.xml version '$CURRENT' is not MAJOR.MINOR.PATCH-SNAPSHOT (semantic versioning). Fix pom.xml before merging." >&2
+            exit 1
+          fi
           RELEASE=${CURRENT%-SNAPSHOT}
+          # Every release is a patch bump (MAJOR.MINOR.PATCH -> MAJOR.MINOR.PATCH+1).
+          # To ship a minor/major release instead, edit pom.xml's <version> to the
+          # desired MAJOR.MINOR.0-SNAPSHOT before merging to main.
           NEXT=$(echo "$RELEASE" | awk -F. -v OFS=. '{ $NF += 1; print }')-SNAPSHOT
           echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
           echo "next=$NEXT" >> "$GITHUB_OUTPUT"
