@@ -9,7 +9,6 @@ import akka.javasdk.agent.Agent;
 import akka.javasdk.agent.ModelProvider;
 import akka.javasdk.annotations.Component;
 import akka.javasdk.client.ComponentClient;
-import dev.langchain4j.agent.tool.P;
 
 @Component(id = "activity-agent")
 public class ActivityAgent extends Agent {
