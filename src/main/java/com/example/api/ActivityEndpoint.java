@@ -65,7 +65,7 @@ public class ActivityEndpoint {
     }
   }
 
-  @Get("/activities/${userId}/autonomous/${taskId}")
+  @Get("/activities/{userId}/autonomous/{taskId}")
   public HttpResponse suggestActivitiesAutonomusly(String userId, String taskId) {
     var snapshot = componentClient.forTask(taskId).get(ActivityCoordinator.SUGGEST_ACTIVITIES);
 
