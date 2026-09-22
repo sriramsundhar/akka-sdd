@@ -45,7 +45,7 @@ public class ActivityAgent extends Agent {
           preferences.entries().stream().collect(Collectors.joining("\n", "- ", ""));
     }
 
-    logger.info("invoke with usserId:{} message: {} with preferences", request.userId, request.message, userMessage);
+    logger.info("invoke with usserId:{} message: {} with preferences:{}", request.userId, request.message, userMessage);
 
     return effects().model(ModelProvider.fromConfig("litellm"))
         .systemMessage(SYSTEM_MESAGE)

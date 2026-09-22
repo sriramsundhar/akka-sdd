@@ -2,11 +2,12 @@ package com.example.api;
 
 import java.util.UUID;
 
-import com.example.application.ActivityAgent;
+import com.example.application.AgentTeamWorkflow;
 import com.example.application.PreferencesEntity;
 
 import akka.http.javadsl.model.HttpResponse;
 import akka.javasdk.annotations.Acl;
+import akka.javasdk.annotations.http.Get;
 import akka.javasdk.annotations.http.HttpEndpoint;
 import akka.javasdk.annotations.http.Post;
 import akka.javasdk.client.ComponentClient;
@@ -29,13 +30,28 @@ public class ActivityEndpoint {
   }
 
   @Post("/activities/{userId}")
-  public String suggestActivities(String userId, Request request) {
+  public HttpResponse suggestActivities(String userId, Request request) {
     var sessionId = UUID.randomUUID().toString();
-    return componentClient
-        .forAgent()
-        .inSession(sessionId)
-        .method(ActivityAgent::suggestActivity)
-        .invoke(new ActivityAgent.Request(userId, request.message));
+
+    var res = componentClient
+        .forWorkflow(sessionId)
+        .method(AgentTeamWorkflow::start)
+        .invoke(new AgentTeamWorkflow.Request(userId, request.message()));
+    return HttpResponses.created(res, "activities/" + userId + "/" + sessionId);
+  }
+
+  @Get("activities/{userId}/{sessionId}")
+  public HttpResponse suggestedAcctivities(String userId, String sessionId) {
+    var res = componentClient.forWorkflow(sessionId)
+        .method(AgentTeamWorkflow::getAnswer)
+        .invoke();
+
+    if (res.isEmpty()) {
+      return HttpResponses.notFound(
+          "Answer for '" + sessionId + "' not available (yet)");
+    } else {
+      return HttpResponses.ok(res);
+    }
   }
 
   public record AddPreference(String preference) {
