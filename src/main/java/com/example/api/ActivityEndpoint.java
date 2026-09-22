@@ -51,7 +51,7 @@ public class ActivityEndpoint {
     return HttpResponses.created(taskId, "activities/" + userId + "/autonomous/" + taskId);
   }
 
-  @Get("activities/{userId}/workflow/{taskId}")
+  @Get("/activities/{userId}/workflow/{taskId}")
   public HttpResponse suggestedAcctivities(String userId, String taskId) {
     var res = componentClient.forWorkflow(taskId)
         .method(AgentTeamWorkflow::getAnswer)
@@ -65,7 +65,7 @@ public class ActivityEndpoint {
     }
   }
 
-  @Get("activities/${userId}/autonomous/${taskId}")
+  @Get("/activities/${userId}/autonomous/${taskId}")
   public HttpResponse suggestActivitiesAutonomusly(String userId, String taskId) {
     var snapshot = componentClient.forTask(taskId).get(ActivityCoordinator.SUGGEST_ACTIVITIES);
 
