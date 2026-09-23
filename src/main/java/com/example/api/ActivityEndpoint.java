@@ -2,6 +2,7 @@ package com.example.api;
 
 import java.util.UUID;
 
+import com.example.application.ActivityCoordinator;
 import com.example.application.AgentTeamWorkflow;
 import com.example.application.PreferencesEntity;
 
@@ -37,21 +38,41 @@ public class ActivityEndpoint {
         .forWorkflow(sessionId)
         .method(AgentTeamWorkflow::start)
         .invoke(new AgentTeamWorkflow.Request(userId, request.message()));
-    return HttpResponses.created(res, "activities/" + userId + "/" + sessionId);
+    return HttpResponses.created(res, "activities/" + userId + "/workflow/" + sessionId);
   }
 
-  @Get("activities/{userId}/{sessionId}")
-  public HttpResponse suggestedAcctivities(String userId, String sessionId) {
-    var res = componentClient.forWorkflow(sessionId)
+  @Post("/activities/autonomous/{userId}")
+  public HttpResponse suggestActivitiesAutonomously(String userId, Request request) {
+    var sessionId = UUID.randomUUID().toString();
+    var instructions = "User: " + userId + "\n\n" + request.message();
+
+    var taskId = componentClient.forAutonomousAgent(ActivityCoordinator.class, sessionId)
+        .runSingleTask(ActivityCoordinator.SUGGEST_ACTIVITIES.instructions(instructions));
+    return HttpResponses.created(taskId, "activities/" + userId + "/autonomous/" + taskId);
+  }
+
+  @Get("/activities/{userId}/workflow/{taskId}")
+  public HttpResponse suggestedAcctivities(String userId, String taskId) {
+    var res = componentClient.forWorkflow(taskId)
         .method(AgentTeamWorkflow::getAnswer)
         .invoke();
 
     if (res.isEmpty()) {
       return HttpResponses.notFound(
-          "Answer for '" + sessionId + "' not available (yet)");
+          "Answer for '" + taskId + "' not available (yet)");
     } else {
       return HttpResponses.ok(res);
     }
+  }
+
+  @Get("/activities/{userId}/autonomous/{taskId}")
+  public HttpResponse suggestActivitiesAutonomusly(String userId, String taskId) {
+    var snapshot = componentClient.forTask(taskId).get(ActivityCoordinator.SUGGEST_ACTIVITIES);
+
+    return snapshot.result()
+        .<HttpResponse>map(HttpResponses::ok)
+        .orElseGet(
+            () -> HttpResponses.notFound("Answer for '" + taskId + "' not available (yet)"));
   }
 
   public record AddPreference(String preference) {
@@ -65,5 +86,13 @@ public class ActivityEndpoint {
         .invoke(new PreferencesEntity.AddPreference(request.preference()));
 
     return HttpResponses.created();
+  }
+
+  @Get("/preferences/{userId}")
+  public HttpResponse getPreferences(String userId) {
+    var preferences = componentClient.forEventSourcedEntity(userId)
+        .method(PreferencesEntity::getPreferences)
+        .invoke();
+    return HttpResponses.ok(preferences);
   }
 }
