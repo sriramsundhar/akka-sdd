@@ -24,7 +24,7 @@ public class ActivityCoordinator extends AutonomousAgent {
 
   @Override
   public AgentDefinition definition() {
-    return define().modelProvider(ModelProvider.fromConfig("litellm"))
+    return define().modelProvider(ModelProvider.fromConfig("vertex-ai"))
         .instructions("""
               When delegating to the activity agent, include the userId from the task header \
               (the "User: <userId>" line) in the request so the agent can fetch the user's \

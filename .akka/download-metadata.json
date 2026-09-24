@@ -1,20 +1,20 @@
 {
   "agents_md": {
-    "etag": "W/\"b6d6-65b9ea3ebcf4b\"",
-    "last_modified": "Wed, 16 Sep 2026 19:26:13 GMT",
-    "downloaded_at": "2026-09-18T01:57:57Z",
+    "etag": "W/\"b877-65c2650746821\"",
+    "last_modified": "Wed, 23 Sep 2026 13:18:08 GMT",
+    "downloaded_at": "2026-09-23T17:43:59Z",
     "source_url": "https://doc.akka.io/_attachments/AGENTS.md"
   },
   "claude_md": {
-    "etag": "W/\"1426-65b9ea3ebd333\"",
-    "last_modified": "Wed, 16 Sep 2026 19:26:13 GMT",
-    "downloaded_at": "2026-09-18T01:57:56Z",
+    "etag": "W/\"1426-65c2650746821\"",
+    "last_modified": "Wed, 23 Sep 2026 13:18:08 GMT",
+    "downloaded_at": "2026-09-23T17:43:56Z",
     "source_url": "https://doc.akka.io/_attachments/CLAUDE.md"
   },
   "context": {
-    "etag": "\"15cf27-65b9ed7fda08e\"",
-    "last_modified": "Wed, 16 Sep 2026 19:40:46 GMT",
-    "downloaded_at": "2026-09-18T01:57:56Z",
+    "etag": "\"15e706-65c266d649da8\"",
+    "last_modified": "Wed, 23 Sep 2026 13:26:14 GMT",
+    "downloaded_at": "2026-09-23T17:43:40Z",
     "source_url": "https://doc.akka.io/java/_attachments/akka-docs-md.zip"
   },
   "marketplace": {
