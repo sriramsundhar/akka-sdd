@@ -7,7 +7,9 @@ services:
     image: postgres:17
     container_name: akka-sdd-postgres
     ports:
-      - "5432:5432"
+      # Host port for psql/GUI clients. The service reaches Postgres over the
+      # compose network on 5432, so this only needs to be free on the host.
+      - "${POSTGRES_HOST_PORT:-5434}:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
@@ -19,6 +21,21 @@ services:
       retries: 5
       start_period: 5s
       timeout: 5s
+
+  # Web UI to browse the persisted data: http://localhost:8081
+  # Log in with System "PostgreSQL", Server "postgres-db", user "postgres",
+  # password = DB_PASSWORD (default "postgres"), database "postgres".
+  # Akka tables: journal (events), snapshot, manifest, delete_entity.
+  adminer:
+    image: adminer:latest
+    container_name: akka-sdd-adminer
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres-db
 
   akka-sdd:
     image: ${SERVICE_IMAGE:?set SERVICE_IMAGE to the image built with -Pstandalone}

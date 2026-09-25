@@ -53,6 +53,11 @@ SERVICE_IMAGE=<image built above> ANTHROPIC_API_KEY=... docker compose up
 The base image override is needed because the parent pom's standalone profile defaults to a Java 21 JRE,
 while this project compiles for Java 25. Maven also needs `DOCKER_HOST` set if you use a Docker context such as Colima.
 
+To browse the stored data, open Adminer at http://localhost:8081 (System `PostgreSQL`, server
+`postgres-db`, user `postgres`, password `postgres` unless `DB_PASSWORD` is set, database
+`postgres`). Events are in the `journal` table and snapshots in `snapshot`. Postgres is also
+published on host port 5434 (override with `POSTGRES_HOST_PORT`) for `psql` or other clients.
+
 On the Akka platform the database is managed for you, so none of this is needed there.
 
 ## CI/CD
