@@ -31,7 +31,11 @@ public class ActivityCoordinator extends AutonomousAgent {
               preferences.\
             """)
         .capability(TaskAcceptance.of(SUGGEST_ACTIVITIES).maxIterationsPerTask(3))
-        .capability(Delegation.to(WeatherAgent.class, ActivityAgent.class));
+        // Sequential delegation: Vertex AI/Gemini rejects a turn where parallel
+        // function calls don't each get a matching function response ("400 ...
+        // number of function response parts is equal to the number of function
+        // call parts"), which parallel delegation to two agents triggers.
+        .capability(Delegation.to(WeatherAgent.class, ActivityAgent.class).maxParallelWorkers(1));
 
   }
 
