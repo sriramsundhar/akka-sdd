@@ -66,6 +66,12 @@ jobs:
       - name: Build service image
         run: mvn -B clean install -DskipTests
 
+      # Standalone (self-hosted, Postgres-backed) image. The parent pom's
+      # standalone profile defaults to a Java 21 JRE, but this project compiles
+      # for Java 25, so the base image must be overridden.
+      - name: Build standalone service image
+        run: mvn -B clean install -DskipTests -Pstandalone -Ddocker.base.image=eclipse-temurin:25-jre-jammy
+
   release:
     # [skip ci] on the version-bump commits below stops this from re-triggering itself.
     if: github.event_name == 'push' && github.ref_name == 'main'
@@ -156,6 +162,15 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           mvn -B clean install -DskipTests -Ddocker.tag="$TAG"
 
+      - name: Build standalone service image
+        id: standalone
+        run: |
+          TAG="${{ steps.image.outputs.tag }}-standalone"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          mvn -B clean install -DskipTests -Pstandalone \
+            -Ddocker.base.image=eclipse-temurin:25-jre-jammy \
+            -Ddocker.tag="$TAG"
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -171,6 +186,9 @@ jobs:
           docker tag "$IMAGE" "${GHCR_BASE}:latest"
           docker push "${GHCR_BASE}:${{ steps.version.outputs.release }}"
           docker push "${GHCR_BASE}:latest"
+          STANDALONE="${SERVICE_NAME}:${{ steps.standalone.outputs.tag }}"
+          docker tag "$STANDALONE" "${GHCR_BASE}:${{ steps.version.outputs.release }}-standalone"
+          docker push "${GHCR_BASE}:${{ steps.version.outputs.release }}-standalone"
 
       - name: Set next development version
         run: |

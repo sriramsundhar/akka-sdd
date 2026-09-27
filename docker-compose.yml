@@ -1,0 +1,57 @@
+# Runs the service against a local Postgres.
+#
+#   mvn clean install -DskipTests -Pstandalone -Ddocker.base.image=eclipse-temurin:25-jre-jammy
+#   SERVICE_IMAGE=<image printed by the build> DB_PASSWORD=postgres docker compose up
+services:
+  postgres-db:
+    image: postgres:17
+    container_name: akka-sdd-postgres
+    ports:
+      # Host port for psql/GUI clients. The service reaches Postgres over the
+      # compose network on 5432, so this only needs to be free on the host.
+      - "${POSTGRES_HOST_PORT:-5434}:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-q", "-d", "postgres", "-U", "postgres"]
+      interval: 5s
+      retries: 5
+      start_period: 5s
+      timeout: 5s
+
+  # Web UI to browse the persisted data: http://localhost:8081
+  # Log in with System "PostgreSQL", Server "postgres-db", user "postgres",
+  # password = DB_PASSWORD (default "postgres"), database "postgres".
+  # Akka tables: journal (events), snapshot, manifest, delete_entity.
+  adminer:
+    image: adminer:latest
+    container_name: akka-sdd-adminer
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres-db
+
+  akka-sdd:
+    image: ${SERVICE_IMAGE:?set SERVICE_IMAGE to the image built with -Pstandalone}
+    container_name: akka-sdd-service
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    ports:
+      - "9000:9000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      STANDALONE_SINGLE_NODE: "true"
+      DB_HOST: postgres-db
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
+volumes:
+  postgres-data:

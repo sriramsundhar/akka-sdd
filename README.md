@@ -36,6 +36,30 @@ akka service deploy empty-service empty-service:tag-name --push
 
 Refer to [Deploy and manage services](https://doc.akka.io/operations/services/deploy-service.html) for more information.
 
+## Running with Postgres
+
+Entity, workflow and view state is persisted by the Akka runtime. `mvn compile exec:java`
+and the tests use an in-memory store; a standalone run (container image or
+`akka local cluster`) stores everything in Postgres. The connection is configured in
+`application.conf` under `akka.persistence.r2dbc` and read from `DB_HOST`, `DB_PORT`,
+`DB_DATABASE`, `DB_USER` and `DB_PASSWORD` (defaults: `localhost:5432`, database, user and
+password all `postgres`; set `DB_PASSWORD` for anything other than local development). Tables are created automatically.
+
+```shell
+mvn clean install -DskipTests -Pstandalone -Ddocker.base.image=eclipse-temurin:25-jre-jammy
+SERVICE_IMAGE=<image built above> ANTHROPIC_API_KEY=... docker compose up
+```
+
+The base image override is needed because the parent pom's standalone profile defaults to a Java 21 JRE,
+while this project compiles for Java 25. Maven also needs `DOCKER_HOST` set if you use a Docker context such as Colima.
+
+To browse the stored data, open Adminer at http://localhost:8081 (System `PostgreSQL`, server
+`postgres-db`, user `postgres`, password `postgres` unless `DB_PASSWORD` is set, database
+`postgres`). Events are in the `journal` table and snapshots in `snapshot`. Postgres is also
+published on host port 5434 (override with `POSTGRES_HOST_PORT`) for `psql` or other clients.
+
+On the Akka platform the database is managed for you, so none of this is needed there.
+
 ## CI/CD
 
 A single GitHub Actions workflow, `.github/workflows/ci.yml`, handles both build
@@ -56,6 +80,8 @@ and release, following the pattern in
      `chore(release): 1.1.0 [skip ci]`, and tags it `v1.1.0`.
   3. Builds and tests the release-versioned jar and container image.
   4. Pushes the image to GHCR as `ghcr.io/<owner>/<repo>:1.1.0` and `:latest`.
+     A self-hostable, Postgres-ready image (built with `-Pstandalone` on a Java 25 base)
+     is also pushed as `:1.1.0-standalone`; the `build` job verifies it builds too.
   5. Bumps `pom.xml` to the next **patch** snapshot (e.g. `1.1.1-SNAPSHOT`),
      committed as
      `chore: prepare for next development iteration (1.1.1-SNAPSHOT) [skip ci]`.
