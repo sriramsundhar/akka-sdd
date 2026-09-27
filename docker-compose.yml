@@ -37,6 +37,27 @@ services:
     environment:
       ADMINER_DEFAULT_SERVER: postgres-db
 
+  # MongoDB for application data. Connect with:
+  #   mongodb://mongo:${MONGO_PASSWORD:-mongo}@localhost:27017/?authSource=admin
+  # (or mongo-db:27017 from other compose services). Local-development default
+  # credentials only; set MONGO_PASSWORD for anything else.
+  mongo-db:
+    image: mongo:8
+    container_name: akka-sdd-mongo
+    ports:
+      - "${MONGO_HOST_PORT:-27017}:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongo
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-mongo}
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "-u", "mongo", "-p", "${MONGO_PASSWORD:-mongo}", "--authenticationDatabase", "admin", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      retries: 5
+      start_period: 10s
+      timeout: 5s
+
   akka-sdd:
     image: ${SERVICE_IMAGE:?set SERVICE_IMAGE to the image built with -Pstandalone}
     container_name: akka-sdd-service
@@ -52,6 +73,8 @@ services:
       DB_HOST: postgres-db
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      MONGODB_URI: mongodb://mongo:${MONGO_PASSWORD:-mongo}@mongo-db:27017/?authSource=admin
 
 volumes:
   postgres-data:
+  mongo-data:
