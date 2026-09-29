@@ -37,32 +37,39 @@ services:
     environment:
       ADMINER_DEFAULT_SERVER: postgres-db
 
-  # MongoDB for application data. Connect with:
+  # MongoDB for application data, using the Atlas Local image so Atlas
+  # Search / Vector Search (used by RagIndexingWorkflow) work against
+  # localhost:27017 the same way they would on a real Atlas cluster - the
+  # plain community `mongo` image has no mongot process and rejects
+  # $listSearchIndexes/createSearchIndex with SearchNotEnabled. Connect with:
   #   mongodb://mongo:${MONGO_PASSWORD:-mongo}@localhost:27017/?authSource=admin
   # (or mongo-db:27017 from other compose services). Local-development default
-  # credentials only; set MONGO_PASSWORD for anything else.
+  # credentials only; set MONGO_PASSWORD for anything else. Note the env var
+  # prefix is MONGODB_ (not MONGO_) for this image.
   mongo-db:
-    image: mongo:8
+    image: mongodb/mongodb-atlas-local:latest
     container_name: akka-sdd-mongo
     ports:
       - "${MONGO_HOST_PORT:-27017}:27017"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: mongo
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-mongo}
+      MONGODB_INITDB_ROOT_USERNAME: mongo
+      MONGODB_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-mongo}
     volumes:
       - mongo-data:/data/db
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "-u", "mongo", "-p", "${MONGO_PASSWORD:-mongo}", "--authenticationDatabase", "admin", "--eval", "db.adminCommand('ping').ok"]
       interval: 5s
-      retries: 5
-      start_period: 10s
+      retries: 10
+      start_period: 30s
       timeout: 5s
 
   akka-sdd:
-    image: ${SERVICE_IMAGE:?set SERVICE_IMAGE to the image built with -Pstandalone}
+    image: ${SERVICE_IMAGE:-akka-sdd:latest}  
     container_name: akka-sdd-service
     depends_on:
       postgres-db:
+        condition: service_healthy
+      mongo-db:
         condition: service_healthy
     ports:
       - "9000:9000"
