@@ -60,6 +60,10 @@ public class RagIndexingWorkflow extends Workflow<RagIndexingWorkflow.State> {
     this.embeddingModel = GoogleAiEmbeddingModel.builder()
         .apiKey(config.getString(GEMINI_PATH + ".api-key"))
         .modelName(config.getString(GEMINI_PATH + ".model-name"))
+        // gemini-embedding-001 defaults to 3072 dims; truncate to 1536 to
+        // match MongoDbEmbeddingStore's default vector index (IndexMapping
+        // .defaultIndexMapping(), unchanged below).
+        .outputDimensionality(1536)
         .build();
     this.embeddingStore = MongoDbEmbeddingStore.builder()
         .fromClient(mongoClient)
@@ -158,11 +162,7 @@ public class RagIndexingWorkflow extends Workflow<RagIndexingWorkflow.State> {
     var fileName = seg.metadata().getString(srcKey);
     var res = embeddingModel.embed(seg);
 
-    logger.debug(
-        "Segment embedded. Source file '{}'. Tokens usage: in {}, out {}",
-        fileName,
-        res.tokenUsage().inputTokenCount(),
-        res.tokenUsage().outputTokenCount());
+    logger.debug("Segment embedded. Source file '{}'.", fileName);
 
     embeddingStore.add(res.content(), seg);
   }

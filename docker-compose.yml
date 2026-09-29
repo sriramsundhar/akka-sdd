@@ -7,8 +7,6 @@ services:
     image: postgres:17
     container_name: akka-sdd-postgres
     ports:
-      # Host port for psql/GUI clients. The service reaches Postgres over the
-      # compose network on 5432, so this only needs to be free on the host.
       - "${POSTGRES_HOST_PORT:-5434}:5432"
     environment:
       POSTGRES_USER: postgres
@@ -22,10 +20,6 @@ services:
       start_period: 5s
       timeout: 5s
 
-  # Web UI to browse the persisted data: http://localhost:8081
-  # Log in with System "PostgreSQL", Server "postgres-db", user "postgres",
-  # password = DB_PASSWORD (default "postgres"), database "postgres".
-  # Akka tables: journal (events), snapshot, manifest, delete_entity.
   adminer:
     image: adminer:latest
     container_name: akka-sdd-adminer
@@ -37,15 +31,6 @@ services:
     environment:
       ADMINER_DEFAULT_SERVER: postgres-db
 
-  # MongoDB for application data, using the Atlas Local image so Atlas
-  # Search / Vector Search (used by RagIndexingWorkflow) work against
-  # localhost:27017 the same way they would on a real Atlas cluster - the
-  # plain community `mongo` image has no mongot process and rejects
-  # $listSearchIndexes/createSearchIndex with SearchNotEnabled. Connect with:
-  #   mongodb://mongo:${MONGO_PASSWORD:-mongo}@localhost:27017/?authSource=admin
-  # (or mongo-db:27017 from other compose services). Local-development default
-  # credentials only; set MONGO_PASSWORD for anything else. Note the env var
-  # prefix is MONGODB_ (not MONGO_) for this image.
   mongo-db:
     image: mongodb/mongodb-atlas-local:latest
     container_name: akka-sdd-mongo
@@ -80,7 +65,7 @@ services:
       DB_HOST: postgres-db
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      MONGODB_URI: mongodb://mongo:${MONGO_PASSWORD:-mongo}@mongo-db:27017/?authSource=admin
+      MONGODB_URI: mongodb://mongo:${MONGO_PASSWORD:-mongo}@mongo-db:27017/?authSource=admin&directConnection=true
 
 volumes:
   postgres-data:
