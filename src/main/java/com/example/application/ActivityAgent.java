@@ -6,7 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import akka.javasdk.agent.Agent;
-import akka.javasdk.agent.ModelProvider;
 import akka.javasdk.annotations.Component;
 import akka.javasdk.client.ComponentClient;
 
@@ -47,7 +46,7 @@ public class ActivityAgent extends Agent {
 
     logger.info("invoke with usserId:{} message: {} with preferences:{}", request.userId, request.message, userMessage);
 
-    return effects().model(ModelProvider.fromConfig("litellm"))
+    return effects()
         .systemMessage(SYSTEM_MESAGE)
         .userMessage(userMessage)
         .thenReply();

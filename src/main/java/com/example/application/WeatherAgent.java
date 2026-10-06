@@ -4,7 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import akka.javasdk.agent.Agent;
-import akka.javasdk.agent.ModelProvider;
 import akka.javasdk.annotations.Component;
 import akka.javasdk.annotations.Description;
 import akka.javasdk.annotations.FunctionTool;
@@ -27,8 +26,8 @@ public class WeatherAgent extends Agent {
   public Effect<String> query(String message) {
     logger.info("Invoked with: {}", message);
     return effects()
-        .model(ModelProvider.fromConfig("litellm"))
-        .systemMessage(SYSTEM_MESSAGE).userMessage(message).thenReply();
+        .systemMessage(SYSTEM_MESSAGE)
+        .userMessage(message).thenReply();
   }
 
   @FunctionTool(description = "Returns the current weather forecast for a given city.")

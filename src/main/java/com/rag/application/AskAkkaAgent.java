@@ -1,7 +1,6 @@
 package com.rag.application;
 
 import akka.javasdk.agent.Agent;
-import akka.javasdk.agent.ModelProvider;
 import akka.javasdk.annotations.Component;
 
 @Component(id = "ask-akka-agent", name = "Ask Akka", description = "Expert in Akka")
@@ -14,11 +13,18 @@ public class AskAkkaAgent extends Agent {
       If you are unsure and the text is not explicitly written in the documentation, say:
       Sorry, I don't know how to help with that.
       """.stripIndent();
+  private Knowledge knowledge;
+
+  public AskAkkaAgent(Knowledge knowledge) {
+    this.knowledge = knowledge;
+  }
 
   public StreamEffect ask(String question) {
-    return streamEffects().model(ModelProvider.fromConfig("vertex-ai"))
+
+    var enrichedQuestion = knowledge.addKnowledge(question);
+    return streamEffects()
         .systemMessage(SYSTEM_MESSAGE)
-        .userMessage(question)
+        .userMessage(enrichedQuestion)
         .thenReply();
   }
 }

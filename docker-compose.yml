@@ -64,8 +64,8 @@ services:
       STANDALONE_SINGLE_NODE: "true"
       DB_HOST: postgres-db
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       MONGODB_URI: mongodb://mongo:${MONGO_PASSWORD:-mongo}@mongo-db:27017/?authSource=admin&directConnection=true
+      AGENT_MODEL_PROVIDER: "gemini"
 
 volumes:
   postgres-data:

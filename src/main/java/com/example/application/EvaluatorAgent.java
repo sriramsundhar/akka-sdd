@@ -68,7 +68,7 @@ public class EvaluatorAgent extends Agent {
         Please evaluate the final answer against the original request.
         """.formatted(request.originalRequest(), request.finalAnswer());
 
-    return effects().model(ModelProvider.fromConfig("litellm"))
+    return effects()
         .systemMessage(SYSTEM_MESSAGE)
         .userMessage(prompt)
         .responseConformsTo(Result.class)
