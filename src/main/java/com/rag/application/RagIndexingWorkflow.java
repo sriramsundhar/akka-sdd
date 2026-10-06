@@ -3,26 +3,6 @@ package com.rag.application;
 import static akka.Done.done;
 import static java.time.Duration.ofMinutes;
 
-import akka.Done;
-import akka.javasdk.annotations.Component;
-import akka.javasdk.annotations.StepName;
-import akka.javasdk.workflow.Workflow;
-import com.mongodb.client.MongoClient;
-import com.typesafe.config.Config;
-
-import dev.langchain4j.data.document.BlankDocumentException;
-import dev.langchain4j.data.document.DefaultDocument;
-import dev.langchain4j.data.document.Document;
-import dev.langchain4j.data.document.DocumentSplitter;
-import dev.langchain4j.data.document.Metadata;
-import dev.langchain4j.data.document.parser.TextDocumentParser;
-import dev.langchain4j.data.document.splitter.DocumentByCharacterSplitter;
-import dev.langchain4j.data.segment.TextSegment;
-import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.googleai.GoogleAiEmbeddingModel;
-import dev.langchain4j.store.embedding.mongodb.MongoDbEmbeddingStore;
-import dev.langchain4j.store.embedding.mongodb.MongoDbEmbeddingStore.Builder;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -32,8 +12,27 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.mongodb.client.MongoClient;
+import com.typesafe.config.Config;
+
+import akka.Done;
+import akka.javasdk.annotations.Component;
+import akka.javasdk.annotations.StepName;
+import akka.javasdk.workflow.Workflow;
+import dev.langchain4j.data.document.BlankDocumentException;
+import dev.langchain4j.data.document.DefaultDocument;
+import dev.langchain4j.data.document.Document;
+import dev.langchain4j.data.document.Metadata;
+import dev.langchain4j.data.document.parser.TextDocumentParser;
+import dev.langchain4j.data.document.splitter.DocumentByCharacterSplitter;
+import dev.langchain4j.data.segment.TextSegment;
+import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.model.googleai.GoogleAiEmbeddingModel;
+import dev.langchain4j.store.embedding.mongodb.MongoDbEmbeddingStore;
 
 /**
  * This workflow reads the files under src/main/resources/md-docs/ and create
