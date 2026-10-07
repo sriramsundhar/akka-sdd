@@ -1,6 +1,5 @@
 package com.example.application;
 
-import akka.javasdk.agent.ModelProvider;
 import akka.javasdk.agent.autonomous.AgentDefinition;
 import akka.javasdk.agent.autonomous.AutonomousAgent;
 import akka.javasdk.agent.autonomous.capability.Delegation;
@@ -24,17 +23,13 @@ public class ActivityCoordinator extends AutonomousAgent {
 
   @Override
   public AgentDefinition definition() {
-    return define().modelProvider(ModelProvider.fromConfig("vertex-ai"))
+    return define()
         .instructions("""
               When delegating to the activity agent, include the userId from the task header \
               (the "User: <userId>" line) in the request so the agent can fetch the user's \
               preferences.\
             """)
         .capability(TaskAcceptance.of(SUGGEST_ACTIVITIES).maxIterationsPerTask(3))
-        // Sequential delegation: Vertex AI/Gemini rejects a turn where parallel
-        // function calls don't each get a matching function response ("400 ...
-        // number of function response parts is equal to the number of function
-        // call parts"), which parallel delegation to two agents triggers.
         .capability(Delegation.to(WeatherAgent.class, ActivityAgent.class).maxParallelWorkers(1));
 
   }

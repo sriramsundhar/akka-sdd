@@ -1,10 +1,10 @@
 package com.example.application;
 
+import java.util.Locale;
+
 import akka.javasdk.agent.Agent;
 import akka.javasdk.agent.EvaluationResult;
-import akka.javasdk.agent.ModelProvider;
 import akka.javasdk.annotations.Component;
-import java.util.Locale;
 
 @Component(id = "evaluator-agent", name = "Evaluator Agent", description = """
     An agent that acts as an LLM judge to evaluate the quality of AI responses. \
@@ -68,7 +68,7 @@ public class EvaluatorAgent extends Agent {
         Please evaluate the final answer against the original request.
         """.formatted(request.originalRequest(), request.finalAnswer());
 
-    return effects().model(ModelProvider.fromConfig("litellm"))
+    return effects()
         .systemMessage(SYSTEM_MESSAGE)
         .userMessage(prompt)
         .responseConformsTo(Result.class)

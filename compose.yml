@@ -1,14 +1,8 @@
-# Runs the service against a local Postgres.
-#
-#   mvn clean install -DskipTests -Pstandalone -Ddocker.base.image=eclipse-temurin:25-jre-jammy
-#   SERVICE_IMAGE=<image printed by the build> DB_PASSWORD=postgres docker compose up
 services:
   postgres-db:
     image: postgres:17
     container_name: akka-sdd-postgres
     ports:
-      # Host port for psql/GUI clients. The service reaches Postgres over the
-      # compose network on 5432, so this only needs to be free on the host.
       - "${POSTGRES_HOST_PORT:-5434}:5432"
     environment:
       POSTGRES_USER: postgres
@@ -22,10 +16,6 @@ services:
       start_period: 5s
       timeout: 5s
 
-  # Web UI to browse the persisted data: http://localhost:8081
-  # Log in with System "PostgreSQL", Server "postgres-db", user "postgres",
-  # password = DB_PASSWORD (default "postgres"), database "postgres".
-  # Akka tables: journal (events), snapshot, manifest, delete_entity.
   adminer:
     image: adminer:latest
     container_name: akka-sdd-adminer
@@ -37,32 +27,30 @@ services:
     environment:
       ADMINER_DEFAULT_SERVER: postgres-db
 
-  # MongoDB for application data. Connect with:
-  #   mongodb://mongo:${MONGO_PASSWORD:-mongo}@localhost:27017/?authSource=admin
-  # (or mongo-db:27017 from other compose services). Local-development default
-  # credentials only; set MONGO_PASSWORD for anything else.
   mongo-db:
-    image: mongo:8
+    image: mongodb/mongodb-atlas-local:latest
     container_name: akka-sdd-mongo
     ports:
       - "${MONGO_HOST_PORT:-27017}:27017"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: mongo
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-mongo}
+      MONGODB_INITDB_ROOT_USERNAME: mongo
+      MONGODB_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-mongo}
     volumes:
       - mongo-data:/data/db
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "-u", "mongo", "-p", "${MONGO_PASSWORD:-mongo}", "--authenticationDatabase", "admin", "--eval", "db.adminCommand('ping').ok"]
       interval: 5s
-      retries: 5
-      start_period: 10s
+      retries: 10
+      start_period: 30s
       timeout: 5s
 
   akka-sdd:
-    image: ${SERVICE_IMAGE:?set SERVICE_IMAGE to the image built with -Pstandalone}
+    image: ${SERVICE_IMAGE:-akka-sdd:latest}  
     container_name: akka-sdd-service
     depends_on:
       postgres-db:
+        condition: service_healthy
+      mongo-db:
         condition: service_healthy
     ports:
       - "9000:9000"
@@ -72,8 +60,11 @@ services:
       STANDALONE_SINGLE_NODE: "true"
       DB_HOST: postgres-db
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      MONGODB_URI: mongodb://mongo:${MONGO_PASSWORD:-mongo}@mongo-db:27017/?authSource=admin
+      MONGODB_URI: mongodb://mongo:${MONGO_PASSWORD:-mongo}@mongo-db:27017/?authSource=admin&directConnection=true
+      AGENT_MODEL_PROVIDER: "vertex-ai"
+      VERTEX_AI_API_KEY: ${VERTEX_AI_API_KEY:?set VERTEX_AI_API_KEY before running the service}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:?set GEMINI_API_KEY before running the service}
+
 
 volumes:
   postgres-data:
