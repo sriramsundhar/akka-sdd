@@ -1,7 +1,3 @@
-# Runs the service against a local Postgres.
-#
-#   mvn clean install -DskipTests -Pstandalone -Ddocker.base.image=eclipse-temurin:25-jre-jammy
-#   SERVICE_IMAGE=<image printed by the build> DB_PASSWORD=postgres docker compose up
 services:
   postgres-db:
     image: postgres:17
@@ -65,7 +61,10 @@ services:
       DB_HOST: postgres-db
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       MONGODB_URI: mongodb://mongo:${MONGO_PASSWORD:-mongo}@mongo-db:27017/?authSource=admin&directConnection=true
-      AGENT_MODEL_PROVIDER: "gemini"
+      AGENT_MODEL_PROVIDER: "vertex-ai"
+      VERTEX_AI_API_KEY: ${VERTEX_AI_API_KEY:?set VERTEX_AI_API_KEY before running the service}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:?set GEMINI_API_KEY before running the service}
+
 
 volumes:
   postgres-data:

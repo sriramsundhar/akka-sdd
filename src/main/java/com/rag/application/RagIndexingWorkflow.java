@@ -5,12 +5,16 @@ import static java.time.Duration.ofMinutes;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.JarURLConnection;
+import java.net.URI;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.jar.JarFile;
 import java.util.stream.Stream;
 
 import org.slf4j.Logger;
@@ -72,12 +76,12 @@ public class RagIndexingWorkflow extends Workflow<RagIndexingWorkflow.State> {
     this.splitter = new DocumentByCharacterSplitter(500, 50); // <1>
   }
 
-  public record State(List<Path> toProcess, List<Path> processed) { // <1>
-    public static State of(List<Path> toProcess) {
+  public record State(List<String> toProcess, List<String> processed) { // <1>
+    public static State of(List<String> toProcess) {
       return new State(toProcess, new ArrayList<>());
     }
 
-    public Optional<Path> head() {
+    public Optional<String> head() {
       if (toProcess.isEmpty())
         return Optional.empty();
       else
@@ -136,21 +140,26 @@ public class RagIndexingWorkflow extends Workflow<RagIndexingWorkflow.State> {
     }
   }
 
-  private void indexFile(Path path) {
-    try (InputStream input = Files.newInputStream(path)) {
+  private void indexFile(String resourceName) {
+    var fileName = resourceName.substring(resourceName.lastIndexOf('/') + 1);
+    try (InputStream input = getClass().getClassLoader().getResourceAsStream(resourceName)) {
+      if (input == null) {
+        logger.error("Resource not found: {}", resourceName);
+        return;
+      }
       Document doc = new TextDocumentParser().parse(input);
-      var docWithMetadata = new DefaultDocument(doc.text(), Metadata.metadata(srcKey, path.getFileName().toString()));
+      var docWithMetadata = new DefaultDocument(doc.text(), Metadata.metadata(srcKey, fileName));
       var segments = splitter.split(docWithMetadata);
       logger.debug(
           "Created {} segments for document {}",
           segments.size(),
-          path.getFileName());
+          fileName);
 
       segments.forEach(this::addSegment);
     } catch (BlankDocumentException e) {
       // some documents are blank, we need to skip them
     } catch (Exception e) {
-      logger.error("Error reading file: {} - {}", path, e.getMessage());
+      logger.error("Error reading file: {} - {}", resourceName, e.getMessage());
     }
   }
 
@@ -167,17 +176,9 @@ public class RagIndexingWorkflow extends Workflow<RagIndexingWorkflow.State> {
     if (currentState().hasFilesToProcess()) {
       return effects().error("Workflow is currently processing documents");
     } else {
-      List<Path> documents;
-      var documentsDirectoryPath = getClass()
-          .getClassLoader()
-          .getResource("md-docs")
-          .getPath();
-
-      try (Stream<Path> paths = Files.walk(Paths.get(documentsDirectoryPath))) {
-        documents = paths
-            .filter(Files::isRegularFile)
-            .filter(path -> path.toString().endsWith(".md"))
-            .toList();
+      List<String> documents;
+      try {
+        documents = listMdDocsResources();
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
@@ -186,6 +187,41 @@ public class RagIndexingWorkflow extends Workflow<RagIndexingWorkflow.State> {
           .updateState(State.of(documents))
           .transitionTo(RagIndexingWorkflow::processingFileStep)
           .thenReply(done());
+    }
+  }
+
+  /**
+   * Lists the "md-docs" classpath resources ending in .md. Handles both an
+   * exploded classpath (mvn exec:java, tests - "md-docs" resolves to a real
+   * directory) and a packaged jar (standalone/Docker - "md-docs" resolves to
+   * jar:file:...!/md-docs, which java.nio.file.Files cannot walk directly).
+   */
+  private List<String> listMdDocsResources() throws IOException {
+    URL resource = getClass().getClassLoader().getResource("md-docs");
+    if (resource == null) {
+      return List.of();
+    }
+
+    if ("jar".equals(resource.getProtocol())) {
+      JarURLConnection jarConnection = (JarURLConnection) resource.openConnection();
+      // Avoid touching the JVM's shared/cached JarFile for the running jar -
+      // open a private one we can safely close.
+      jarConnection.setUseCaches(false);
+      try (JarFile jarFile = jarConnection.getJarFile()) {
+        return jarFile.stream()
+            .map(entry -> entry.getName())
+            .filter(name -> name.startsWith("md-docs/") && name.endsWith(".md"))
+            .toList();
+      }
+    } else {
+      var root = Paths.get(URI.create(resource.toString()));
+      try (Stream<Path> paths = Files.walk(root)) {
+        return paths
+            .filter(Files::isRegularFile)
+            .filter(path -> path.toString().endsWith(".md"))
+            .map(path -> "md-docs/" + root.relativize(path).toString().replace(java.io.File.separatorChar, '/'))
+            .toList();
+      }
     }
   }
 
