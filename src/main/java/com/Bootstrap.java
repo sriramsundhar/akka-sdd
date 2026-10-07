@@ -20,7 +20,14 @@ public class Bootstrap implements ServiceSetup {
   @Override
   public DependencyProvider createDependencyProvider() {
     MongoClient mongoClient = MongoClients.create(config.getString("mongodb.uri"));
-    Knowledge knowledge = new Knowledge(mongoClient, config);
+    // Knowledge's constructor checks/creates a MongoDB Atlas Search index, which
+    // requires a live MongoDB connection. Build it lazily - only when a component
+    // that actually depends on it (AskAkkaAgent) is instantiated - rather than
+    // unconditionally on every service boot, which would otherwise require MongoDB
+    // to be reachable just to run unrelated components/tests.
+    Object lock = new Object();
+    Knowledge[] knowledgeHolder = new Knowledge[1];
+
     return new DependencyProvider() {
       @SuppressWarnings("unchecked")
       @Override
@@ -29,7 +36,12 @@ public class Bootstrap implements ServiceSetup {
           return (T) mongoClient;
         }
         if (cls.equals(Knowledge.class)) {
-          return (T) knowledge;
+          synchronized (lock) {
+            if (knowledgeHolder[0] == null) {
+              knowledgeHolder[0] = new Knowledge(mongoClient, config);
+            }
+          }
+          return (T) knowledgeHolder[0];
         }
 
         return null;
