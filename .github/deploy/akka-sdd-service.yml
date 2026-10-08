@@ -11,18 +11,9 @@ service:
   env:
     - name: OKTA_CLIENT_ID
       valueFrom: { secretKeyRef: { name: okta, key: OKTA_CLIENT_ID } }
-    # Selects which akka.javasdk.agent.* section in application.conf is used
-    # as the default model provider.
     - name: AGENT_MODEL_PROVIDER
       value: "vertex-ai"
     - name: VERTEX_AI_API_KEY
-      valueFrom: { secretKeyRef: { name: vertex-ai, key: VERTEX_AI_API_KEY } }
-    # Used by RagIndexingWorkflow/Knowledge for text embeddings, independent
-    # of AGENT_MODEL_PROVIDER above.
+      valueFrom: { secretKeyRef: { name: akka-sdd-service-secrets, key: VERTEX_AI_API_KEY } }
     - name: GEMINI_API_KEY
-      valueFrom: { secretKeyRef: { name: gemini, key: GEMINI_API_KEY } }
-    # The default in application.conf points at localhost, which isn't
-    # reachable from the platform - a real MongoDB connection string is
-    # required for the RAG embedding store.
-    - name: MONGODB_URI
-      valueFrom: { secretKeyRef: { name: mongodb, key: MONGODB_URI } }
+      valueFrom: { secretKeyRef: { name: akka-sdd-service-secrets, key: GEMINI_API_KEY } }
