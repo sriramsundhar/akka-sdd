@@ -64,6 +64,9 @@ services:
       AGENT_MODEL_PROVIDER: "vertex-ai"
       VERTEX_AI_API_KEY: ${VERTEX_AI_API_KEY:?set VERTEX_AI_API_KEY before running the service}
       GEMINI_API_KEY: ${GEMINI_API_KEY:?set GEMINI_API_KEY before running the service}
+      # Free key from https://account.akka.io/key. Without one the runtime
+      # falls back to a trial key that expires and self-terminates the service.
+      AKKA_LICENSE_KEY: ${AKKA_LICENSE_KEY:?set AKKA_LICENSE_KEY before running the service}
 
 
 volumes:
