@@ -1,0 +1,19 @@
+name: akka-sdd-service
+service:
+  image: __IMAGE__
+  resources:
+    runtime:
+      mode: embedded
+    instanceType: g1.general.x-small
+    autoscaling:
+      minInstances: 1
+      maxInstances: 1
+  env:
+    - name: OKTA_CLIENT_ID
+      valueFrom: { secretKeyRef: { name: okta, key: OKTA_CLIENT_ID } }
+    - name: AGENT_MODEL_PROVIDER
+      value: "vertex-ai"
+    - name: VERTEX_AI_API_KEY
+      valueFrom: { secretKeyRef: { name: akka-sdd-service-secrets, key: VERTEX_AI_API_KEY } }
+    - name: GEMINI_API_KEY
+      valueFrom: { secretKeyRef: { name: akka-sdd-service-secrets, key: GEMINI_API_KEY } }
