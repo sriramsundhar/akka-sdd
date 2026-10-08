@@ -9,8 +9,6 @@ service:
       minInstances: 1
       maxInstances: 1
   env:
-    - name: OKTA_CLIENT_ID
-      valueFrom: { secretKeyRef: { name: okta, key: OKTA_CLIENT_ID } }
     - name: AGENT_MODEL_PROVIDER
       value: "vertex-ai"
     - name: VERTEX_AI_API_KEY
