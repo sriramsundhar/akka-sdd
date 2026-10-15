@@ -78,7 +78,7 @@ jobs:
             -Ddocker.base.image=eclipse-temurin:25-jre-jammy \
             -Ddocker.image="${SERVICE_NAME}-standalone"
 
-  containerScan:
+  scoutScan:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -260,8 +260,12 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const service = fs.readFileSync('snyk-service-output.txt', 'utf-8');
-            const standalone = fs.readFileSync('snyk-standalone-output.txt', 'utf-8');
+            // Snyk's CLI output includes ANSI color escape codes, which
+            // GitHub comments render as literal garbled characters rather
+            // than color - strip them rather than relying on a CLI flag.
+            const stripAnsi = (s) => s.replace(/[\u001B\u009B][[\]()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
+            const service = stripAnsi(fs.readFileSync('snyk-service-output.txt', 'utf-8'));
+            const standalone = stripAnsi(fs.readFileSync('snyk-standalone-output.txt', 'utf-8'));
             const body = [
               '## Snyk container scan results',
               '<details><summary>akka-sdd:latest</summary>\n\n```\n' + service + '\n```\n</details>',
