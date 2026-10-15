@@ -22,6 +22,7 @@ jobs:
         with:
           token: ${{ secrets.DEV_AKKA_DEPLOY_TOKEN }}
           project-id: "f55c6a6a-3dae-461f-b2e8-6c67809e2c93"
+          api-server-host: api.kalix.dev:443
 
       - name: Render service + observability descriptor
         env:
