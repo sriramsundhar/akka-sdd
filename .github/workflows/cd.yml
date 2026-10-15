@@ -1,13 +1,8 @@
 name: CD
 
-# Deploys only the Service document from akka-sdd-service.yml, not the
-# Observability one alongside it. Project service tokens (DEV_AKKA_DEPLOY_TOKEN)
-# can view/deploy/update services but never have "Admin project" permission,
-# which Observability config requires - applying the full file fails with
-# "kalixobservabilities ... is forbidden" even though Service applies fine.
-# Observability rarely changes anyway, unlike the image on every release, so
-# apply that document once yourself, with your own admin session:
-#   akka project apply -f .github/deploy/akka-sdd-service.yml --project f55c6a6a-3dae-461f-b2e8-6c67809e2c93
+# Deploys akka-sdd-service.yml (the Service resource only). Observability
+# config lives in the separate observability.yml and is applied by hand -
+# see .github/deploy/README.md for why.
 on:
   workflow_dispatch:
     inputs:
@@ -37,10 +32,8 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}:${VERSION}"
-          # Only the Service document (everything before the first "---"):
-          # the token deploying this can't apply the Observability one.
-          awk '/^---$/{exit} {print}' .github/deploy/akka-sdd-service.yml \
-            | sed "s|__IMAGE__|${IMAGE}|" > /tmp/akka-sdd-service.rendered.yml
+          sed "s|__IMAGE__|${IMAGE}|" \
+            .github/deploy/akka-sdd-service.yml > /tmp/akka-sdd-service.rendered.yml
 
       - name: Apply service descriptor
         run: akka project apply -f /tmp/akka-sdd-service.rendered.yml

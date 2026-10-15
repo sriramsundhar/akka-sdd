@@ -15,28 +15,3 @@ spec:
       valueFrom: { secretKeyRef: { name: akka-sdd-service-secrets, key: AGENT_MODEL_PROVIDER } }
     - name: VERTEX_AI_API_KEY
       valueFrom: { secretKeyRef: { name: akka-sdd-service-secrets, key: VERTEX_AI_API_KEY } }
----
-resource: Observability
-resourceVersion: v2
-spec:
-  exporters:
-    - kalixConsole: {}
-  metrics:
-    - otlpHttp:
-        endpointBaseUrl: https://otlp-gateway-prod-ca-east-0.grafana.net/otlp/v1/metrics
-        headers:
-          - name: Authorization
-            valueFrom:
-              secretKeyRef:
-                name: grafana-cloud
-                key: authorization
-    - kalixConsole: {}
-  logs:
-    - otlpHttp:
-        endpointBaseUrl: https://otlp-gateway-prod-ca-east-0.grafana.net/otlp/v1/logs
-        headers:
-          - name: Authorization
-            valueFrom:
-              secretKeyRef:
-                name: grafana-cloud
-                key: authorization
