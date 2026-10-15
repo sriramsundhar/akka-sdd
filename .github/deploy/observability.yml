@@ -1,0 +1,24 @@
+resource: Observability
+resourceVersion: v2
+spec:
+  exporters:
+    - kalixConsole: {}
+  metrics:
+    - otlpHttp:
+        endpointBaseUrl: https://otlp-gateway-prod-ca-east-0.grafana.net/otlp
+        headers:
+          - name: Authorization
+            valueFrom:
+              secretKeyRef:
+                name: grafana-cloud
+                key: authorization
+    - kalixConsole: {}
+  logs:
+    - otlpHttp:
+        endpointBaseUrl: https://otlp-gateway-prod-ca-east-0.grafana.net/otlp
+        headers:
+          - name: Authorization
+            valueFrom:
+              secretKeyRef:
+                name: grafana-cloud
+                key: authorization
