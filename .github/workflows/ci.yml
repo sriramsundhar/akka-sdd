@@ -87,6 +87,7 @@ jobs:
     permissions:
       contents: write
       packages: write
+      actions: write
     env:
       SERVICE_NAME: akka-sdd
     steps:
@@ -218,3 +219,12 @@ jobs:
             --title "v${{ steps.version.outputs.release }}" \
             --generate-notes \
             --notes "Container image: ghcr.io/${GITHUB_REPOSITORY,,}:${{ steps.version.outputs.release }}"
+
+      # workflow_dispatch/repository_dispatch are the only triggers exempt
+      # from GitHub's restriction that events created by the built-in
+      # GITHUB_TOKEN don't cascade into new workflow runs - a `release`
+      # event here would not reach cd.yml, so dispatch it explicitly.
+      - name: Trigger CD deployment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run cd.yml -f version="${{ steps.version.outputs.release }}"
