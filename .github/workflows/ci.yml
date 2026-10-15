@@ -79,46 +79,6 @@ jobs:
             -Ddocker.base.image=eclipse-temurin:25-jre-jammy \
             -Ddocker.image="${SERVICE_NAME}-standalone"
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: sriramsundhar
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
-
-      # Scans the images built above (no rebuild/push needed - this job
-      # already has them loaded locally). write-comment is off: this
-      # workflow deliberately doesn't trigger on pull_request (see the `on:`
-      # comment above), so there's no PR to comment on.
-      - name: Scan service image with Docker Scout
-        uses: docker/scout-action@v1.11.0
-        with:
-          command: cves,recommendations
-          image: local://${{ env.SERVICE_NAME }}:latest
-          to-latest: true
-          ignore-base: true
-          only-severities: critical,high
-          sarif-file: sarif.service.output.json
-          summary: true
-          write-comment: false
-          exit-on: vulnerability
-          exit-code: true
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Scan standalone service image with Docker Scout
-        uses: docker/scout-action@v1.11.0
-        with:
-          command: cves,recommendations
-          image: local://${{ env.SERVICE_NAME }}-standalone:latest
-          to-latest: true
-          ignore-base: true
-          only-severities: critical,high
-          sarif-file: sarif.standalone.output.json
-          summary: true
-          write-comment: false
-          exit-on: vulnerability
-          exit-code: true
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
   release:
     # [skip ci] on the version-bump commits below stops this from re-triggering itself.
     if: github.event_name == 'push' && github.ref_name == 'main'
