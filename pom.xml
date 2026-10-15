@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.akka</groupId>
         <artifactId>akka-javasdk-parent</artifactId>
-        <version>3.6.3</version>
+        <version>3.6.6</version>
     </parent>
     <groupId>com.example</groupId>
     <artifactId>akka-sdd</artifactId>
@@ -16,6 +16,12 @@
         <maven.compiler.source>25</maven.compiler.source>
         <maven.compiler.target>25</maven.compiler.target>
         <langchain4j.version>1.15.0</langchain4j.version>
+        <!-- The parent pom still pins this to the ancient 2.22.2, whose
+             bundled junit-platform-launcher is too old for the JUnit 5.14.4
+             this SDK version pulls in (fails with "OutputDirectoryCreator
+             not available" and silently discovers zero tests instead of
+             failing the build). Override to a modern version. -->
+        <maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
   </properties>
 
     <dependencies>
