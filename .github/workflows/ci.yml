@@ -171,10 +171,80 @@ jobs:
           exit-code: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+  snykScan:
+    runs-on: ubuntu-latest
+    env:
+      SERVICE_NAME: akka-sdd
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: "25"
+          distribution: "temurin"
+          cache: "maven"
+
+      - name: Configure Akka Maven repository
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml <<EOF
+          <settings xmlns="http://maven.apache.org/SETTINGS/1.2.0">
+            <profiles>
+              <profile>
+                <id>akka-profile</id>
+                <activation><activeByDefault>true</activeByDefault></activation>
+                <repositories>
+                  <repository>
+                    <id>akka-repository</id>
+                    <url>${AKKA_REPOSITORY_URL}</url>
+                  </repository>
+                </repositories>
+                <pluginRepositories>
+                  <pluginRepository>
+                    <id>akka-plugin-repository</id>
+                    <url>${AKKA_REPOSITORY_URL}</url>
+                  </pluginRepository>
+                </pluginRepositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>akka-profile</activeProfile>
+            </activeProfiles>
+          </settings>
+          EOF
+        env:
+          AKKA_REPOSITORY_URL: ${{ secrets.AKKA_REPOSITORY_URL }}
+
+      - name: Build service image
+        run: mvn -B clean install -DskipTests
+
+      - name: Build standalone service image
+        run: |
+          mvn -B clean install -DskipTests -Pstandalone \
+            -Ddocker.base.image=eclipse-temurin:25-jre-jammy \
+            -Ddocker.image="${SERVICE_NAME}-standalone"
+
+      - name: Scan service image with Snyk
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: ${{ env.SERVICE_NAME }}:latest
+          args: --severity-threshold=high --sarif-file-output=snyk.service.sarif
+
+      - name: Scan standalone service image with Snyk
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: ${{ env.SERVICE_NAME }}-standalone:latest
+          args: --severity-threshold=high --sarif-file-output=snyk.standalone.sarif
+
   release:
     # [skip ci] on the version-bump commits below stops this from re-triggering itself.
     if: github.event_name == 'push' && github.ref_name == 'main'
-    needs: [build, containerScan]
+    needs: [build, containerScan, snykScan]
     runs-on: ubuntu-latest
     permissions:
       contents: write
