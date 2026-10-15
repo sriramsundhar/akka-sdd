@@ -1,0 +1,36 @@
+name: CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version to deploy, e.g. 1.1.7 (no leading v)"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-dev:
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Akka CLI
+        uses: akka/setup-akka-cli-action@v1.1.0
+        with:
+          token: ${{ secrets.DEV_AKKA_DEPLOY_TOKEN }}
+          project-id: "f55c6a6a-3dae-461f-b2e8-6c67809e2c93"
+
+      - name: Render service + observability descriptor
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}:${VERSION}"
+          sed "s|__IMAGE__|${IMAGE}|" \
+            .github/deploy/akka-sdd-service.yml > /tmp/akka-sdd-service.rendered.yml
+
+      - name: Apply service + observability descriptor
+        run: akka project apply -f /tmp/akka-sdd-service.rendered.yml
+
