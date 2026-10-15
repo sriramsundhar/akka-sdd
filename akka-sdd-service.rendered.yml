@@ -1,0 +1,17 @@
+resource: Service
+resourceVersion: v1
+metadata:
+  name: akka-sdd-service
+spec:
+  image: DKKDDK
+  resources:
+    runtime:
+      mode: embedded
+    autoscaling:
+      minInstances: 1
+      maxInstances: 1
+  env:
+    - name: AGENT_MODEL_PROVIDER
+      valueFrom: { secretKeyRef: { name: akka-sdd-service-secrets, key: AGENT_MODEL_PROVIDER } }
+    - name: VERTEX_AI_API_KEY
+      valueFrom: { secretKeyRef: { name: akka-sdd-service-secrets, key: VERTEX_AI_API_KEY } }
