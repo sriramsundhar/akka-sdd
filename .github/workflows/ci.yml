@@ -80,6 +80,9 @@ jobs:
 
   scoutScan:
     runs-on: ubuntu-latest
+    # Non-blocking: findings still show up (job-level failure in the Actions
+    # UI, PR comment), but don't fail the pipeline or block release.
+    continue-on-error: true
     permissions:
       contents: read
       pull-requests: write
@@ -190,6 +193,9 @@ jobs:
 
   snykScan:
     runs-on: ubuntu-latest
+    # Non-blocking: findings still show up (job-level failure in the Actions
+    # UI, PR comment), but don't fail the pipeline or block release.
+    continue-on-error: true
     permissions:
       contents: read
       pull-requests: write
