@@ -5,10 +5,9 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  # Only push, not pull_request: a same-repo PR shares its commit with the
-  # source branch, so adding pull_request here would run the workflow twice
-  # for the same commit.
   push:
+    branches: [main]
+  pull_request:
 
 permissions:
   contents: read
@@ -79,10 +78,249 @@ jobs:
             -Ddocker.base.image=eclipse-temurin:25-jre-jammy \
             -Ddocker.image="${SERVICE_NAME}-standalone"
 
+  scoutScan:
+    runs-on: ubuntu-latest
+    # Non-blocking: findings still show up (job-level failure in the Actions
+    # UI, PR comment), but don't fail the pipeline or block release.
+    continue-on-error: true
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      SERVICE_NAME: akka-sdd
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: "25"
+          distribution: "temurin"
+          cache: "maven"
+
+      - name: Configure Akka Maven repository
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml <<EOF
+          <settings xmlns="http://maven.apache.org/SETTINGS/1.2.0">
+            <profiles>
+              <profile>
+                <id>akka-profile</id>
+                <activation><activeByDefault>true</activeByDefault></activation>
+                <repositories>
+                  <repository>
+                    <id>akka-repository</id>
+                    <url>${AKKA_REPOSITORY_URL}</url>
+                  </repository>
+                </repositories>
+                <pluginRepositories>
+                  <pluginRepository>
+                    <id>akka-plugin-repository</id>
+                    <url>${AKKA_REPOSITORY_URL}</url>
+                  </pluginRepository>
+                </pluginRepositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>akka-profile</activeProfile>
+            </activeProfiles>
+          </settings>
+          EOF
+        env:
+          AKKA_REPOSITORY_URL: ${{ secrets.AKKA_REPOSITORY_URL }}
+
+      - name: Build service image
+        run: mvn -B clean install -DskipTests
+
+      - name: Build standalone service image
+        run: |
+          mvn -B clean install -DskipTests -Pstandalone \
+            -Ddocker.base.image=eclipse-temurin:25-jre-jammy \
+            -Ddocker.image="${SERVICE_NAME}-standalone"
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: sriramsundhar
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      # The regular image's /opt/local-lib (the shipped app-level deps
+      # Akka's docs say to scan: https://doc.akka.io/operations/integrating-cicd/scanning-dependencies.html#_scan_the_container_image)
+      # is only populated by its entrypoint at container *start* - a static
+      # image scan sees it empty. Build a throwaway image that copies the
+      # same jars into /opt/local-lib at build time instead, purely so
+      # Scout (an image-only scanner) has something to statically see.
+      # The standalone image has no such split: it's self-hosted, so there
+      # is no Akka-managed runtime to exclude - scan the whole thing.
+      - name: Prepare service image scan target
+        run: |
+          cat > /tmp/Dockerfile.scan <<EOF
+          FROM ${SERVICE_NAME}:latest AS source
+          FROM scratch
+          COPY --from=source /maven /opt/local-lib
+          EOF
+          docker build -t "${SERVICE_NAME}-scan:latest" -f /tmp/Dockerfile.scan .
+
+      - name: Scan service image's shipped libraries with Docker Scout
+        uses: docker/scout-action@v1.11.0
+        with:
+          command: cves,recommendations
+          image: local://${{ env.SERVICE_NAME }}-scan:latest
+          to-latest: true
+          ignore-base: true
+          only-severities: critical,high
+          sarif-file: sarif.service.output.json
+          summary: true
+          write-comment: true
+          exit-on: vulnerability
+          exit-code: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scan standalone service image with Docker Scout
+        uses: docker/scout-action@v1.11.0
+        with:
+          command: cves,recommendations
+          image: local://${{ env.SERVICE_NAME }}-standalone:latest
+          to-latest: true
+          ignore-base: true
+          only-severities: critical,high
+          sarif-file: sarif.standalone.output.json
+          summary: true
+          write-comment: true
+          exit-on: vulnerability
+          exit-code: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  snykScan:
+    runs-on: ubuntu-latest
+    # Non-blocking: findings still show up (job-level failure in the Actions
+    # UI, PR comment), but don't fail the pipeline or block release.
+    continue-on-error: true
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      SERVICE_NAME: akka-sdd
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: "25"
+          distribution: "temurin"
+          cache: "maven"
+
+      - name: Configure Akka Maven repository
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml <<EOF
+          <settings xmlns="http://maven.apache.org/SETTINGS/1.2.0">
+            <profiles>
+              <profile>
+                <id>akka-profile</id>
+                <activation><activeByDefault>true</activeByDefault></activation>
+                <repositories>
+                  <repository>
+                    <id>akka-repository</id>
+                    <url>${AKKA_REPOSITORY_URL}</url>
+                  </repository>
+                </repositories>
+                <pluginRepositories>
+                  <pluginRepository>
+                    <id>akka-plugin-repository</id>
+                    <url>${AKKA_REPOSITORY_URL}</url>
+                  </pluginRepository>
+                </pluginRepositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>akka-profile</activeProfile>
+            </activeProfiles>
+          </settings>
+          EOF
+        env:
+          AKKA_REPOSITORY_URL: ${{ secrets.AKKA_REPOSITORY_URL }}
+
+      - name: Build service image
+        run: mvn -B clean install -DskipTests
+
+      - name: Build standalone service image
+        run: |
+          mvn -B clean install -DskipTests -Pstandalone \
+            -Ddocker.base.image=eclipse-temurin:25-jre-jammy \
+            -Ddocker.image="${SERVICE_NAME}-standalone"
+
+      - name: Install Snyk CLI
+        uses: snyk/actions/setup@master
+
+      # Run via the CLI directly rather than snyk/actions/docker: that
+      # action fails the step immediately on findings, before a comment can
+      # be posted. Capturing output and deferring the pass/fail decision to
+      # the last step lets the PR comment post either way, same as Scout's
+      # write-comment does.
+      #
+      # The regular image scan targets the shipped-libraries folder, not
+      # the image, per Akka's docs
+      # (https://doc.akka.io/operations/integrating-cicd/scanning-dependencies.html#_scan_the_shipped_libraries):
+      # mvn's build already wrote exactly the app-level deps there (19
+      # jars, no netty/jackson/etc - those are Akka-managed runtime, out of
+      # scope for us). The standalone image bundles that runtime itself
+      # (self-hosted, no shared-responsibility split), so it's still
+      # scanned as a whole image below.
+      - name: Scan service image's shipped libraries with Snyk
+        id: snyk-service
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          snyk test --scan-all-unmanaged --severity-threshold=high \
+            -- --target-dir="target/docker/${SERVICE_NAME}/latest/build/maven/" \
+            | tee snyk-service-output.txt || true
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Scan standalone service image with Snyk
+        id: snyk-standalone
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          snyk container test "${SERVICE_NAME}-standalone:latest" --severity-threshold=high \
+            | tee snyk-standalone-output.txt || true
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Comment Snyk results on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            // Snyk's CLI output includes ANSI color escape codes, which
+            // GitHub comments render as literal garbled characters rather
+            // than color - strip them rather than relying on a CLI flag.
+            const stripAnsi = (s) => s.replace(/[\u001B\u009B][[\]()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
+            const service = stripAnsi(fs.readFileSync('snyk-service-output.txt', 'utf-8'));
+            const standalone = stripAnsi(fs.readFileSync('snyk-standalone-output.txt', 'utf-8'));
+            const body = [
+              '## Snyk container scan results',
+              '<details><summary>akka-sdd shipped libraries (/opt/local-lib)</summary>\n\n```\n' + service + '\n```\n</details>',
+              '<details><summary>akka-sdd-standalone:latest (full image)</summary>\n\n```\n' + standalone + '\n```\n</details>',
+            ].join('\n\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Fail if Snyk found high/critical vulnerabilities
+        if: steps.snyk-service.outputs.exit_code != '0' || steps.snyk-standalone.outputs.exit_code != '0'
+        run: |
+          echo "::error::Snyk found high/critical vulnerabilities - see the scan output above (or the PR comment)."
+          exit 1
+
   release:
     # [skip ci] on the version-bump commits below stops this from re-triggering itself.
     if: github.event_name == 'push' && github.ref_name == 'main'
-    needs: build
+    needs: [build, scoutScan, snykScan]
     runs-on: ubuntu-latest
     permissions:
       contents: write
