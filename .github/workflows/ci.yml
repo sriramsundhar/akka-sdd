@@ -141,13 +141,29 @@ jobs:
           username: sriramsundhar
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-      - name: Scan service image with Docker Scout
+      # The regular image's /opt/local-lib (the shipped app-level deps
+      # Akka's docs say to scan: https://doc.akka.io/operations/integrating-cicd/scanning-dependencies.html#_scan_the_container_image)
+      # is only populated by its entrypoint at container *start* - a static
+      # image scan sees it empty. Build a throwaway image that copies the
+      # same jars into /opt/local-lib at build time instead, purely so
+      # Scout (an image-only scanner) has something to statically see.
+      # The standalone image has no such split: it's self-hosted, so there
+      # is no Akka-managed runtime to exclude - scan the whole thing.
+      - name: Prepare service image scan target
+        run: |
+          cat > /tmp/Dockerfile.scan <<EOF
+          FROM ${SERVICE_NAME}:latest AS source
+          FROM scratch
+          COPY --from=source /maven /opt/local-lib
+          EOF
+          docker build -t "${SERVICE_NAME}-scan:latest" -f /tmp/Dockerfile.scan .
+
+      - name: Scan service image's shipped libraries with Docker Scout
         uses: docker/scout-action@v1.11.0
         with:
           command: cves,recommendations
-          image: local://${{ env.SERVICE_NAME }}:latest
+          image: local://${{ env.SERVICE_NAME }}-scan:latest
           to-latest: true
-          ignore-base: true
           only-severities: critical,high
           sarif-file: sarif.service.output.json
           summary: true
@@ -236,12 +252,22 @@ jobs:
       # be posted. Capturing output and deferring the pass/fail decision to
       # the last step lets the PR comment post either way, same as Scout's
       # write-comment does.
-      - name: Scan service image with Snyk
+      #
+      # The regular image scan targets the shipped-libraries folder, not
+      # the image, per Akka's docs
+      # (https://doc.akka.io/operations/integrating-cicd/scanning-dependencies.html#_scan_the_shipped_libraries):
+      # mvn's build already wrote exactly the app-level deps there (19
+      # jars, no netty/jackson/etc - those are Akka-managed runtime, out of
+      # scope for us). The standalone image bundles that runtime itself
+      # (self-hosted, no shared-responsibility split), so it's still
+      # scanned as a whole image below.
+      - name: Scan service image's shipped libraries with Snyk
         id: snyk-service
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
-          snyk container test "${SERVICE_NAME}:latest" --severity-threshold=high \
+          snyk test --scan-all-unmanaged --severity-threshold=high \
+            -- --target-dir="target/docker/${SERVICE_NAME}/latest/build/maven/" \
             | tee snyk-service-output.txt || true
           echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
 
@@ -268,8 +294,8 @@ jobs:
             const standalone = stripAnsi(fs.readFileSync('snyk-standalone-output.txt', 'utf-8'));
             const body = [
               '## Snyk container scan results',
-              '<details><summary>akka-sdd:latest</summary>\n\n```\n' + service + '\n```\n</details>',
-              '<details><summary>akka-sdd-standalone:latest</summary>\n\n```\n' + standalone + '\n```\n</details>',
+              '<details><summary>akka-sdd shipped libraries (/opt/local-lib)</summary>\n\n```\n' + service + '\n```\n</details>',
+              '<details><summary>akka-sdd-standalone:latest (full image)</summary>\n\n```\n' + standalone + '\n```\n</details>',
             ].join('\n\n');
             await github.rest.issues.createComment({
               owner: context.repo.owner,
