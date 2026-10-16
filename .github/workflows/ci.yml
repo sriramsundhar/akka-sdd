@@ -164,6 +164,7 @@ jobs:
           command: cves,recommendations
           image: local://${{ env.SERVICE_NAME }}-scan:latest
           to-latest: true
+          ignore-base: true
           only-severities: critical,high
           sarif-file: sarif.service.output.json
           summary: true
