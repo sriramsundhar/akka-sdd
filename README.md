@@ -15,8 +15,15 @@ mvn compile
 To start your service locally, run:
 
 ```shell
-mvn compile exec:java
+mvn compile exec:java -Dconfig.resource=application-dev.conf
 ```
+
+`application.conf` is the deployment config (what the Akka platform and the
+standalone image load by default); `application-dev.conf` `include`s it and
+overrides just what local development needs to differ (currently: routing
+the default agent provider through a local `litellm` proxy instead of
+Vertex AI, so no cloud API key is needed). Omitting the flag runs with the
+deployment config instead, which needs `VERTEX_AI_API_KEY` set.
 
 You can use the [Akka Console](https://console.akka.io) to create a project and see the status of your service.
 
