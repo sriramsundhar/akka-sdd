@@ -313,7 +313,7 @@ jobs:
   release:
     # [skip ci] on the version-bump commits below stops this from re-triggering itself.
     if: github.event_name == 'push' && github.ref_name == 'main'
-    needs: [build, containerScan, snykScan]
+    needs: [build, scoutScan, snykScan]
     runs-on: ubuntu-latest
     permissions:
       contents: write
