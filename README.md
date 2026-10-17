@@ -15,8 +15,15 @@ mvn compile
 To start your service locally, run:
 
 ```shell
-mvn compile exec:java
+mvn compile exec:java -Dconfig.resource=application-dev.conf
 ```
+
+`application.conf` is the deployment config (what the Akka platform and the
+standalone image load by default); `application-dev.conf` `include`s it and
+overrides just what local development needs to differ (currently: routing
+the default agent provider through a local `litellm` proxy instead of
+Vertex AI, so no cloud API key is needed). Omitting the flag runs with the
+deployment config instead, which needs `VERTEX_AI_API_KEY` set.
 
 You can use the [Akka Console](https://console.akka.io) to create a project and see the status of your service.
 
@@ -41,9 +48,19 @@ Refer to [Deploy and manage services](https://doc.akka.io/operations/services/de
 Entity, workflow and view state is persisted by the Akka runtime. `mvn compile exec:java`
 and the tests use an in-memory store; a standalone run (container image or
 `akka local cluster`) stores everything in Postgres. The connection is configured in
-`application.conf` under `akka.persistence.r2dbc` and read from `DB_HOST`, `DB_PORT`,
+`application-dev.conf` under `akka.persistence.r2dbc` and read from `DB_HOST`, `DB_PORT`,
 `DB_DATABASE`, `DB_USER` and `DB_PASSWORD` (defaults: `localhost:5432`, database, user and
 password all `postgres`; set `DB_PASSWORD` for anything other than local development). Tables are created automatically.
+
+A standalone container image loads `application.conf` by default, not
+`application-dev.conf` - so as shipped, the `compose.yml` setup below does **not** pick up
+the `akka.persistence.r2dbc` block above; `DB_HOST`/`DB_PASSWORD` etc. have no effect and the
+container falls back to the Akka runtime's own r2dbc defaults. Passing
+`-Dconfig.resource=application-dev.conf` to the container (e.g. via `JAVA_TOOL_OPTIONS`) would
+pick it up, but also forces `model-provider` to `litellm` for that container (see
+`application-dev.conf`), overriding the `AGENT_MODEL_PROVIDER=vertex-ai` / `VERTEX_AI_API_KEY`
+that `compose.yml` already sets for it - so that's only a fix if you also want the standalone
+container to talk to a local litellm proxy instead of Vertex AI.
 
 ```shell
 mvn install -DskipTests -Pstandalone -Ddocker.base.image=eclipse-temurin:25-jre-jammy -Ddocker.platform=linux/arm64
