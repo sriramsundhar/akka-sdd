@@ -28,8 +28,9 @@ jobs:
       - name: Install Akka CLI
         uses: akka/setup-akka-cli-action@v1.1.0
         with:
-          token: ${{ secrets.DEV_AKKA_DEPLOY_TOKEN }}
-          project-id: "f55c6a6a-3dae-461f-b2e8-6c67809e2c93"
+          project-id: workload-identity-oidc-test
+          oauth-provider-name: github-actions
+          oauth-provider-organization-id: eduardo-super-org
           api-server-host: api.kalix.dev:443
 
       - name: Render service descriptor
