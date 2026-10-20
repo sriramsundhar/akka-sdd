@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   deploy-dev:
@@ -20,10 +21,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Debug OIDC Claims
-        uses: github/actions-oidc-debugger@main
+        uses: steve-todorov/oidc-debugger-action@v1
         with:
-          audience: '${{ github.server_url }}/${{ github.repository_owner }}'
-
+          audience: '${{ github.server_url }}/${{ github.repository }}'
+      
       - name: Install Akka CLI
         uses: akka/setup-akka-cli-action@v1.1.0
         with:
