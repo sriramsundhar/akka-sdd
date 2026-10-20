@@ -19,6 +19,10 @@ jobs:
     environment: dev
     steps:
       - uses: actions/checkout@v4
+      - name: Debug OIDC Claims
+        uses: github/actions-oidc-debugger@main
+        with:
+          audience: '${{ github.server_url }}/${{ github.repository_owner }}'
 
       - name: Install Akka CLI
         uses: akka/setup-akka-cli-action@v1.1.0
