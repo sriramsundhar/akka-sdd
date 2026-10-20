@@ -29,7 +29,7 @@ jobs:
         uses: akka/setup-akka-cli-action@v1.1.0
         with:
           project-id: workload-identity-oidc-test
-          oauth-provider-name: github-actions
+          oauth-provider-name: dev-github-actions
           oauth-provider-organization-id: eduardo-super-org
           api-server-host: api.kalix.dev:443
 
