@@ -12,8 +12,38 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
+  deploy-dev-oidc:
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Debug OIDC Claims
+        uses: steve-todorov/oidc-debugger-action@v1
+        with:
+          audience: '${{ github.server_url }}/${{ github.repository }}'
+      
+      - name: Install Akka CLI
+        uses: akka/setup-akka-cli-action@v1.1.0
+        with:
+          project-id: d7179cfa-645f-4a18-aa67-1b082a3175da
+          oauth-provider-name: dev-github-actions
+          oauth-provider-organization-id: b39af577-40b1-4cb9-8786-14391ea37d9f
+          api-server-host: api.kalix.dev:443
+
+      - name: Render service descriptor
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}:${VERSION}"
+          sed "s|__IMAGE__|${IMAGE}|" \
+            .github/deploy/akka-sdd-service.yml > /tmp/akka-sdd-service.rendered.yml
+
+      - name: Apply service descriptor
+        run: akka project apply -f /tmp/akka-sdd-service.rendered.yml
+
   deploy-dev:
     runs-on: ubuntu-latest
     environment: dev
@@ -37,4 +67,3 @@ jobs:
 
       - name: Apply service descriptor
         run: akka project apply -f /tmp/akka-sdd-service.rendered.yml
-
