@@ -30,7 +30,7 @@ jobs:
         with:
           project-id: workload-identity-oidc-test
           oauth-provider-name: dev-github-actions
-          oauth-provider-organization-id: eduardo-super-org
+          oauth-provider-organization-id: b39af577-40b1-4cb9-8786-14391ea37d9f
           api-server-host: api.kalix.dev:443
 
       - name: Render service descriptor
