@@ -15,15 +15,25 @@ mvn compile
 To start your service locally, run:
 
 ```shell
-mvn compile exec:java -Dconfig.resource=application-dev.conf
+AGENT_MODEL_PROVIDER=litellm mvn compile exec:java
 ```
 
-`application.conf` is the deployment config (what the Akka platform and the
-standalone image load by default); `application-dev.conf` `include`s it and
-overrides just what local development needs to differ (currently: routing
-the default agent provider through a local `litellm` proxy instead of
-Vertex AI, so no cloud API key is needed). Omitting the flag runs with the
-deployment config instead, which needs `VERTEX_AI_API_KEY` set.
+`application.conf` is the only config file: the Akka platform, the standalone image
+and local runs all load it. `AGENT_MODEL_PROVIDER=litellm` routes the
+default agent provider through a local `litellm` proxy instead of Vertex AI, so
+no cloud API key is needed; leaving it out runs with Vertex AI, which needs
+`VERTEX_AI_API_KEY` set.
+
+Local runs and tests log in the runtime's JSON format (one JSON object per line),
+because `pom.xml` sets `logback.configurationFile` to `logback.xml`: that is the
+format that applies the log sanitizers (see "Log sanitization sample" below). For the
+readable, unsanitized console format, add
+`-Dlogback.configurationFile=logback-runtime-dev-mode.xml`.
+
+Don't pass `-Dconfig.resource=...` to `mvn compile exec:java`: since Akka SDK 3.7.0
+any such override bypasses the runtime's dev-mode persistence defaults and fails with
+"The Akka Persistence R2DBC database config scheme has changed". Use the environment
+variables that `application.conf` reads instead.
 
 You can use the [Akka Console](https://console.akka.io) to create a project and see the status of your service.
 
@@ -47,25 +57,27 @@ Refer to [Deploy and manage services](https://doc.akka.io/operations/services/de
 
 Entity, workflow and view state is persisted by the Akka runtime. `mvn compile exec:java`
 and the tests use an in-memory store; a standalone run (container image or
-`akka local cluster`) stores everything in Postgres. The connection is configured in
-`application-dev.conf` under `akka.persistence.r2dbc` and read from `DB_HOST`, `DB_PORT`,
-`DB_DATABASE`, `DB_USER` and `DB_PASSWORD` (defaults: `localhost:5432`, database, user and
-password all `postgres`; set `DB_PASSWORD` for anything other than local development). Tables are created automatically.
+`akka local cluster`) stores everything in Postgres. Tables are created automatically.
 
-A standalone container image loads `application.conf` by default, not
-`application-dev.conf` - so as shipped, the `compose.yml` setup below does **not** pick up
-the `akka.persistence.r2dbc` block above; `DB_HOST`/`DB_PASSWORD` etc. have no effect and the
-container falls back to the Akka runtime's own r2dbc defaults. Passing
-`-Dconfig.resource=application-dev.conf` to the container (e.g. via `JAVA_TOOL_OPTIONS`) would
-pick it up, but also forces `model-provider` to `litellm` for that container (see
-`application-dev.conf`), overriding the `AGENT_MODEL_PROVIDER=vertex-ai` / `VERTEX_AI_API_KEY`
-that `compose.yml` already sets for it - so that's only a fix if you also want the standalone
-container to talk to a local litellm proxy instead of Vertex AI.
+The standalone image starts the runtime with its own `runtime-standalone.conf`, which then
+includes `application.conf`. That file reads the connection from `DB_HOST`, `DB_PORT`,
+`DB_DATABASE`, `DB_USER` and `DB_PASSWORD` (defaults: `localhost:5432`, database, user and
+password all `postgres`; set `DB_PASSWORD` for anything other than local development), so
+the project needs no Postgres config of its own. `compose.yml` points `DB_HOST` at its
+`postgres-db` container.
 
 ```shell
 mvn install -DskipTests -Pstandalone -Ddocker.base.image=eclipse-temurin:25-jre-jammy -Ddocker.platform=linux/arm64
-SERVICE_IMAGE=<image built above> ANTHROPIC_API_KEY=... docker compose up
+SERVICE_IMAGE=<image built above> VERTEX_AI_API_KEY=... GEMINI_API_KEY=... AKKA_LICENSE_KEY=... docker compose up
 ```
+
+`compose.yml` refuses to start the service until all three keys are set. The
+license key is free from <https://account.akka.io/key>.
+
+On startup the runtime logs its full configuration at INFO. The log sanitizers don't
+mask API keys, so `application.conf` adds `akka.license-key` and `akka.javasdk.agent`
+(the model providers' settings, including their API keys) to
+`akka.runtime.sensitive-config-paths`, which keeps them out of that log line.
 
 The base image override is needed because the parent pom's standalone profile defaults to a Java 21 JRE,
 while this project compiles for Java 25. Maven also needs `DOCKER_HOST` set if you use a Docker context such as Colima.
@@ -76,6 +88,95 @@ To browse the stored data, open Adminer at <http://localhost:8081> (System `Post
 published on host port 5434 (override with `POSTGRES_HOST_PORT`) for `psql` or other clients.
 
 On the Akka platform the database is managed for you, so none of this is needed there.
+
+## Log sanitization sample
+
+The service masks personal data in its **logs only**, using Akka's runtime
+[data sanitization](https://doc.akka.io/sdk/sanitization.html) (SDK 3.7.0+).
+`src/main/resources/application.conf` defines six entries under
+`akka.javasdk.sanitization.sanitizers`, all with `apply-at = ["logs"]`, so nothing is
+masked in agent model calls, tool results or ad-hoc sanitizer calls:
+
+| Entry | What it masks |
+|---|---|
+| `log-email` | predefined `EMAIL` |
+| `log-phone` | predefined `PHONE` |
+| `log-credit-card` | predefined `CREDIT_CARD` |
+| `log-iban` | predefined `IBAN` |
+| `log-ip-address` | predefined `IP_ADDRESS` |
+| `log-sensitive-fields` | custom `com.example.sanitizer.SensitiveFieldLogSanitizer`: the values of the configured `fields` (`password`, `ssn`, `dateOfBirth`, `securityAnswer`) in JSON (`"ssn":"..."`) and `key=value` text, keeping the field names visible |
+
+Matched text is replaced by `*` of the same length. Output observed from a local run
+(all sample data is synthetic):
+
+| Kind | Logged line | In the logs |
+|---|---|---|
+| `email` | `Password reset requested for jane.doe@example.com` | `Password reset requested for ********************` |
+| `phone` | `SMS verification sent to 202-555-0143` | `SMS verification sent to ************` |
+| `credit-card` | `Payment declined for card 4111 1111 1111 1111` | `Payment declined for card *******************` |
+| `iban` | `Refund issued to GB82WEST12345698765432` | `Refund issued to **********************` |
+| `ip-address` | `Login from 192.0.2.10 and 2001:db8:0:0:0:0:0:1` | `Login from ********** and ********************` |
+| `custom` | `User update {"user":"u-42","ssn":"123-45-6789","dateOfBirth":"1990-01-31"} password=hunter2` | `User update {"user":"u-42","ssn":"***********","dateOfBirth":"**********"} password=*******` |
+| `custom` | `Account recovery {"user":"u-42", "securityAnswer" : "Blue Whale"}` | `Account recovery {"user":"u-42", "securityAnswer" : "**********"}` |
+
+### Try it locally
+
+Masking is applied by the runtime's JSON log format, the one used on the Akka platform
+and by the standalone image. The SDK's plain-text dev console format is **not**
+sanitized, so `pom.xml` switches local runs and tests to the JSON format:
+
+```shell
+mvn compile exec:java
+curl localhost:9000/log-sanitization-demo/all
+```
+
+Running with `-Dlogback.configurationFile=logback-runtime-dev-mode.xml` shows the same
+lines unmasked.
+
+Each sample line shows up masked in the `message` field, for example:
+
+```json
+{"timestamp":"2026-10-29T02:01:36.288Z","logger":"com.example.api.LogSanitizationDemoEndpoint","message":"Password reset requested for ********************","severity":"INFO",...}
+```
+
+`GET /log-sanitization-demo/{kind}` accepts `email`, `phone`, `credit-card`, `iban`,
+`ip-address`, `custom` or `all`, and returns a short confirmation that never contains
+the sample values. Any other `kind` returns 400. The endpoint is open to all callers
+because it is a demo.
+
+The rules apply to every log line, including the runtime's own: the startup line, for
+example, reads `Kalix Runtime started at *********:9000`.
+
+### Known format gaps
+
+The predefined groups don't fully mask every notation, which is why the samples above
+use these formats. Observed with SDK 3.7.0:
+
+| Input | Masked as |
+|---|---|
+| `+1 202 555 0143` (international, spaced) | `+1 ************` |
+| `GB82 WEST 1234 5698 7654 32` (spaced IBAN) | not masked |
+| `2001:db8::1` (compressed IPv6) | `**********1` |
+
+Add a custom `pattern` or `class` entry if your logs carry these notations.
+
+### Tests
+
+- `SanitizationConfigScopeTest` checks that every entry applies to `logs` only and is not
+  scoped to agents.
+- `PredefinedLogSanitizersIntegrationTest` calls each of the six entries by name through
+  `getSanitizerClient()` and asserts the exact masked output.
+- `SensitiveFieldLogSanitizerTest` unit-tests the custom sanitizer (JSON, `key=value`,
+  whitespace, case, partial names, escaped quotes, odd input).
+- `LogSanitizationDemoEndpointIntegrationTest` covers the demo endpoint.
+
+### Performance
+
+Every entry that applies at `logs` runs on **every** log line of the service, including
+Akka's own. Keep the number of rules and the complexity of regular expressions low, and
+keep custom log sanitizers fast, free of logging, and free of exceptions.
+`SensitiveFieldLogSanitizer` compiles its patterns once and returns a line without
+sensitive fields untouched.
 
 ## CI/CD
 
