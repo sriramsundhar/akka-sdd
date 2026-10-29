@@ -15,15 +15,25 @@ mvn compile
 To start your service locally, run:
 
 ```shell
-mvn compile exec:java -Dconfig.resource=application-dev.conf
+AGENT_MODEL_PROVIDER=litellm SPIFFE_ENABLED=false mvn compile exec:java
 ```
 
 `application.conf` is the deployment config (what the Akka platform and the
-standalone image load by default); `application-dev.conf` `include`s it and
-overrides just what local development needs to differ (currently: routing
-the default agent provider through a local `litellm` proxy instead of
-Vertex AI, so no cloud API key is needed). Omitting the flag runs with the
-deployment config instead, which needs `VERTEX_AI_API_KEY` set.
+standalone image load by default). `AGENT_MODEL_PROVIDER=litellm` routes the
+default agent provider through a local `litellm` proxy instead of Vertex AI, so
+no cloud API key is needed; leaving it out runs with Vertex AI, which needs
+`VERTEX_AI_API_KEY` set.
+
+Two things changed with Akka SDK 3.7.0:
+
+- `SPIFFE_ENABLED=false` is needed for local runs. The runtime now enables SPIFFE
+  workload identity by default and refuses to start without a trust domain, which
+  only the Akka platform provides.
+- `-Dconfig.resource=application-dev.conf` no longer starts the service: any
+  `-Dconfig.resource` override bypasses the runtime's dev-mode persistence defaults
+  and fails with "The Akka Persistence R2DBC database config scheme has changed".
+  `application-dev.conf` (which `include`s `application.conf` and sets the same
+  `litellm` override) is kept for reference by the container notes below.
 
 You can use the [Akka Console](https://console.akka.io) to create a project and see the status of your service.
 
@@ -76,6 +86,91 @@ To browse the stored data, open Adminer at <http://localhost:8081> (System `Post
 published on host port 5434 (override with `POSTGRES_HOST_PORT`) for `psql` or other clients.
 
 On the Akka platform the database is managed for you, so none of this is needed there.
+
+## Log sanitization sample
+
+The service masks personal data in its **logs only**, using Akka's runtime
+[data sanitization](https://doc.akka.io/sdk/sanitization.html) (SDK 3.7.0+).
+`src/main/resources/application.conf` defines six entries under
+`akka.javasdk.sanitization.sanitizers`, all with `apply-at = ["logs"]`, so nothing is
+masked in agent model calls, tool results or ad-hoc sanitizer calls:
+
+| Entry | What it masks |
+|---|---|
+| `log-email` | predefined `EMAIL` |
+| `log-phone` | predefined `PHONE` |
+| `log-credit-card` | predefined `CREDIT_CARD` |
+| `log-iban` | predefined `IBAN` |
+| `log-ip-address` | predefined `IP_ADDRESS` |
+| `log-sensitive-fields` | custom `com.example.sanitizer.SensitiveFieldLogSanitizer`: the values of the configured `fields` (`password`, `ssn`, `dateOfBirth`, `securityAnswer`) in JSON (`"ssn":"..."`) and `key=value` text, keeping the field names visible |
+
+Matched text is replaced by `*` of the same length. Output observed from a local run
+(all sample data is synthetic):
+
+| Kind | Logged line | In the logs |
+|---|---|---|
+| `email` | `Password reset requested for jane.doe@example.com` | `Password reset requested for ********************` |
+| `phone` | `SMS verification sent to 202-555-0143` | `SMS verification sent to ************` |
+| `credit-card` | `Payment declined for card 4111 1111 1111 1111` | `Payment declined for card *******************` |
+| `iban` | `Refund issued to GB82WEST12345698765432` | `Refund issued to **********************` |
+| `ip-address` | `Login from 192.0.2.10 and 2001:db8:0:0:0:0:0:1` | `Login from ********** and ********************` |
+| `custom` | `User update {"user":"u-42","ssn":"123-45-6789","dateOfBirth":"1990-01-31"} password=hunter2` | `User update {"user":"u-42","ssn":"***********","dateOfBirth":"**********"} password=*******` |
+
+### Try it locally
+
+Masking is applied by the runtime's JSON log format, the one used on the Akka platform
+and by the standalone image. The plain-text console format used by default for local
+runs and tests is **not** sanitized, so select the JSON format explicitly:
+
+```shell
+SPIFFE_ENABLED=false mvn compile exec:java -Dlogback.configurationFile=logback.xml
+curl localhost:9000/log-sanitization-demo/all
+```
+
+Each sample line shows up masked in the `message` field, for example:
+
+```json
+{"timestamp":"2026-10-29T02:01:36.288Z","logger":"com.example.api.LogSanitizationDemoEndpoint","message":"Password reset requested for ********************","severity":"INFO",...}
+```
+
+`GET /log-sanitization-demo/{kind}` accepts `email`, `phone`, `credit-card`, `iban`,
+`ip-address`, `custom` or `all`, and returns a short confirmation that never contains
+the sample values. Any other `kind` returns 400. The endpoint is open to all callers
+because it is a demo.
+
+The rules apply to every log line, including the runtime's own: the startup line, for
+example, reads `Kalix Runtime started at *********:9000`.
+
+### Known format gaps
+
+The predefined groups don't fully mask every notation, which is why the samples above
+use these formats. Observed with SDK 3.7.0:
+
+| Input | Masked as |
+|---|---|
+| `+1 202 555 0143` (international, spaced) | `+1 ************` |
+| `GB82 WEST 1234 5698 7654 32` (spaced IBAN) | not masked |
+| `2001:db8::1` (compressed IPv6) | `**********1` |
+
+Add a custom `pattern` or `class` entry if your logs carry these notations.
+
+### Tests
+
+- `SanitizationConfigScopeTest` checks that every entry applies to `logs` only and is not
+  scoped to agents.
+- `PredefinedLogSanitizersIntegrationTest` calls each of the six entries by name through
+  `getSanitizerClient()` and asserts the exact masked output.
+- `SensitiveFieldLogSanitizerTest` unit-tests the custom sanitizer (JSON, `key=value`,
+  whitespace, case, partial names, escaped quotes, odd input).
+- `LogSanitizationDemoEndpointIntegrationTest` covers the demo endpoint.
+
+### Performance
+
+Every entry that applies at `logs` runs on **every** log line of the service, including
+Akka's own. Keep the number of rules and the complexity of regular expressions low, and
+keep custom log sanitizers fast, free of logging, and free of exceptions.
+`SensitiveFieldLogSanitizer` compiles its patterns once and returns a line without
+sensitive fields untouched.
 
 ## CI/CD
 
