@@ -16,7 +16,7 @@ All findings below were verified on 2026-10-28 against a scratch copy of this pr
 | Startup fails with any `-Dconfig.resource=…` (even a two-line file that only includes `application.conf`): *"R2DBC database config scheme has changed…"* | The override bypasses the runtime's dev-mode persistence defaults on 3.7.0 | The README's local-dev command switches from `-Dconfig.resource=application-dev.conf` to the existing env override `AGENT_MODEL_PROVIDER=litellm` (already read by `application.conf`). `application-dev.conf` is left as is; its container note stays. |
 | Plain `mvn compile exec:java` | — | Starts fine. |
 
-- **Not verified**: the standalone container image (`-Pstandalone`) at runtime. CI only builds it. It may hit the same SPIFFE default. This is recorded as a risk in plan.md and is not fixed speculatively.
+- **Standalone container image**: verified later, see R8.
 
 ## R3 — Where log masking actually happens
 
@@ -67,3 +67,9 @@ Cross-checks: the phone rule doesn't touch the card, IBAN, IP, SSN/date or times
 ## R7 — Log-only scope check
 
 - **Decision**: Add a unit test, `SanitizationConfigScopeTest`, that parses `application.conf` from the classpath (`ConfigFactory.parseResources`, unresolved; there is no `src/test/resources` override). It asserts that the six entries exist, and that **every** entry under `akka.javasdk.sanitization.sanitizers` has `apply-at == ["logs"]` and no `agents` / `agent-roles`.
+
+## R8 — Standalone container on 3.7.0 (verified 2026-10-29)
+
+- **Finding**: The `-Pstandalone` image (Java 25 base) starts against Postgres with the env vars `compose.yml` sets. Its entrypoint passes `-Dconfig.resource=runtime-standalone.conf`. That runtime file disables SPIFFE, reads `DB_HOST`/`DB_PORT`/`DB_DATABASE`/`DB_USER`/`DB_PASSWORD`, and then includes `application.conf`. So `DB_*` takes effect without any project config, and the README's earlier claim that it had no effect was wrong. All six demo lines came out masked, and an unknown kind returned 400.
+- **Finding**: At startup, `AkkaRuntimeMain` logs the whole config at INFO. It leaves out only the paths in `akka.runtime.sensitive-config-paths`. The default list doesn't cover `akka.license-key` or `akka.javasdk.agent.*.api-key`, so the license key and the Vertex AI key were logged in clear text. The log sanitizers don't mask them.
+- **Decision**: `application.conf` appends `akka.license-key` and `akka.javasdk.agent` to `akka.runtime.sensitive-config-paths`. Re-verified: neither key appears in the logs, the license is still accepted, and the default exclusions (for example the r2dbc `connection-factory`) still apply. `application-dev.conf` is removed. It couldn't be loaded locally on 3.7.0, the image never loaded it, and its r2dbc block duplicated `runtime-standalone.conf`.

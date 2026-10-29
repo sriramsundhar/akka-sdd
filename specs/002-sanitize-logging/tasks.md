@@ -259,3 +259,4 @@ Per CLAUDE.md, pause for user approval after each component and its test.
 
 - A plain `mvn clean compile exec:java` showed unmasked logs, because the dev console format doesn't sanitize. Fix: `pom.xml` now sets `logback.configurationFile` to `logback.xml` (JSON, sanitized) by default. README, quickstart, research R2/R3 and plan were updated.
 - Correction: `SPIFFE_ENABLED=false` is not needed for plain local runs (T003/T018 wording above is superseded). The SPIFFE failure only occurs together with a `-Dconfig.resource` override.
+- Standalone container: built and ran the `-Pstandalone` image against Postgres (research R8). It works. Its startup config dump was logging the license and Vertex AI keys, so `application.conf` now adds them to `akka.runtime.sensitive-config-paths`. `application-dev.conf` was removed, and the README's container section was rewritten.

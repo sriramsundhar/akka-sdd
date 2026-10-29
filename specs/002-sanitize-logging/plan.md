@@ -102,8 +102,8 @@ The five checks captured during `/akka:specify` map onto these test classes: `Sa
 
 ## Risks
 
-- **Standalone container on 3.7.0** has not been run. It may need `SPIFFE_ENABLED=false` (or a trust domain) in `compose.yml`. It is out of scope unless you want it handled here; flagged for your decision.
-- `application-dev.conf` is effectively unusable via `-Dconfig.resource` on 3.7.0. It is left in place (the README's container note still refers to it), and the local-dev command moves to env vars.
+- **Standalone container on 3.7.0**: verified after implementation (R8). It starts, uses Postgres from `DB_*`, and masks the demo lines. Its startup config dump exposed the license and model API keys, so those paths are now in `akka.runtime.sensitive-config-paths`.
+- `application-dev.conf` could not be loaded via `-Dconfig.resource` on 3.7.0, and the standalone image never loaded it, so it was removed (R8). The local-dev command uses env vars.
 
 ## Complexity Tracking
 

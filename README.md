@@ -18,8 +18,8 @@ To start your service locally, run:
 AGENT_MODEL_PROVIDER=litellm mvn compile exec:java
 ```
 
-`application.conf` is the deployment config (what the Akka platform and the
-standalone image load by default). `AGENT_MODEL_PROVIDER=litellm` routes the
+`application.conf` is the only config file: the Akka platform, the standalone image
+and local runs all load it. `AGENT_MODEL_PROVIDER=litellm` routes the
 default agent provider through a local `litellm` proxy instead of Vertex AI, so
 no cloud API key is needed; leaving it out runs with Vertex AI, which needs
 `VERTEX_AI_API_KEY` set.
@@ -30,11 +30,10 @@ format that applies the log sanitizers (see "Log sanitization sample" below). Fo
 readable, unsanitized console format, add
 `-Dlogback.configurationFile=logback-runtime-dev-mode.xml`.
 
-Since Akka SDK 3.7.0, `-Dconfig.resource=application-dev.conf` no longer starts the
-service: any `-Dconfig.resource` override bypasses the runtime's dev-mode persistence
-defaults and fails with "The Akka Persistence R2DBC database config scheme has
-changed". `application-dev.conf` (which `include`s `application.conf` and sets the
-same `litellm` override) is kept for reference by the container notes below.
+Don't pass `-Dconfig.resource=...` to `mvn compile exec:java`: since Akka SDK 3.7.0
+any such override bypasses the runtime's dev-mode persistence defaults and fails with
+"The Akka Persistence R2DBC database config scheme has changed". Use the environment
+variables that `application.conf` reads instead.
 
 You can use the [Akka Console](https://console.akka.io) to create a project and see the status of your service.
 
@@ -58,25 +57,27 @@ Refer to [Deploy and manage services](https://doc.akka.io/operations/services/de
 
 Entity, workflow and view state is persisted by the Akka runtime. `mvn compile exec:java`
 and the tests use an in-memory store; a standalone run (container image or
-`akka local cluster`) stores everything in Postgres. The connection is configured in
-`application-dev.conf` under `akka.persistence.r2dbc` and read from `DB_HOST`, `DB_PORT`,
-`DB_DATABASE`, `DB_USER` and `DB_PASSWORD` (defaults: `localhost:5432`, database, user and
-password all `postgres`; set `DB_PASSWORD` for anything other than local development). Tables are created automatically.
+`akka local cluster`) stores everything in Postgres. Tables are created automatically.
 
-A standalone container image loads `application.conf` by default, not
-`application-dev.conf` - so as shipped, the `compose.yml` setup below does **not** pick up
-the `akka.persistence.r2dbc` block above; `DB_HOST`/`DB_PASSWORD` etc. have no effect and the
-container falls back to the Akka runtime's own r2dbc defaults. Passing
-`-Dconfig.resource=application-dev.conf` to the container (e.g. via `JAVA_TOOL_OPTIONS`) would
-pick it up, but also forces `model-provider` to `litellm` for that container (see
-`application-dev.conf`), overriding the `AGENT_MODEL_PROVIDER=vertex-ai` / `VERTEX_AI_API_KEY`
-that `compose.yml` already sets for it - so that's only a fix if you also want the standalone
-container to talk to a local litellm proxy instead of Vertex AI.
+The standalone image starts the runtime with its own `runtime-standalone.conf`, which then
+includes `application.conf`. That file reads the connection from `DB_HOST`, `DB_PORT`,
+`DB_DATABASE`, `DB_USER` and `DB_PASSWORD` (defaults: `localhost:5432`, database, user and
+password all `postgres`; set `DB_PASSWORD` for anything other than local development), so
+the project needs no Postgres config of its own. `compose.yml` points `DB_HOST` at its
+`postgres-db` container.
 
 ```shell
 mvn install -DskipTests -Pstandalone -Ddocker.base.image=eclipse-temurin:25-jre-jammy -Ddocker.platform=linux/arm64
-SERVICE_IMAGE=<image built above> ANTHROPIC_API_KEY=... docker compose up
+SERVICE_IMAGE=<image built above> VERTEX_AI_API_KEY=... GEMINI_API_KEY=... AKKA_LICENSE_KEY=... docker compose up
 ```
+
+`compose.yml` refuses to start the service until all three keys are set. The
+license key is free from <https://account.akka.io/key>.
+
+On startup the runtime logs its full configuration at INFO. The log sanitizers don't
+mask API keys, so `application.conf` adds `akka.license-key` and `akka.javasdk.agent`
+(the model providers' settings, including their API keys) to
+`akka.runtime.sensitive-config-paths`, which keeps them out of that log line.
 
 The base image override is needed because the parent pom's standalone profile defaults to a Java 21 JRE,
 while this project compiles for Java 25. Maven also needs `DOCKER_HOST` set if you use a Docker context such as Colima.
