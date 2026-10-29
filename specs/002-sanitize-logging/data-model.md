@@ -33,8 +33,9 @@ Rules (checked by `SanitizationConfigScopeTest`):
 | `iban` | `Refund issued to GB82WEST12345698765432` | `Refund issued to **********************` |
 | `ip-address` | `Login from 192.0.2.10 and 2001:db8:0:0:0:0:0:1` | `Login from ********** and ********************` |
 | `custom` | `User update {"user":"u-42","ssn":"123-45-6789","dateOfBirth":"1990-01-31"} password=hunter2` | `User update {"user":"u-42","ssn":"***********","dateOfBirth":"**********"} password=*******` |
+| `custom` | `Account recovery {"user":"u-42", "securityAnswer" : "Blue Whale"}` | `Account recovery {"user":"u-42", "securityAnswer" : "**********"}` |
 
-`all` logs all six, in table order. The README must use output re-captured from the final implementation's real run.
+`custom` logs both custom lines; `all` logs all seven, in table order. The README must use output re-captured from the final implementation's real run.
 
 ## SensitiveFieldLogSanitizer behaviour
 

@@ -31,6 +31,8 @@ public class LogSanitizationDemoEndpoint {
   private static final String IP_ADDRESS = "Login from 192.0.2.10 and 2001:db8:0:0:0:0:0:1";
   private static final String CUSTOM =
       "User update {\"user\":\"u-42\",\"ssn\":\"123-45-6789\",\"dateOfBirth\":\"1990-01-31\"} password=hunter2";
+  private static final String SECURITY_ANSWER =
+      "Account recovery {\"user\":\"u-42\", \"securityAnswer\" : \"Blue Whale\"}";
 
   @Get("/{kind}")
   public HttpResponse logSample(String kind) {
@@ -40,8 +42,8 @@ public class LogSanitizationDemoEndpoint {
       case "credit-card" -> List.of(CREDIT_CARD);
       case "iban" -> List.of(IBAN);
       case "ip-address" -> List.of(IP_ADDRESS);
-      case "custom" -> List.of(CUSTOM);
-      case "all" -> List.of(EMAIL, PHONE, CREDIT_CARD, IBAN, IP_ADDRESS, CUSTOM);
+      case "custom" -> List.of(CUSTOM, SECURITY_ANSWER);
+      case "all" -> List.of(EMAIL, PHONE, CREDIT_CARD, IBAN, IP_ADDRESS, CUSTOM, SECURITY_ANSWER);
       default -> List.of();
     };
     if (lines.isEmpty()) {

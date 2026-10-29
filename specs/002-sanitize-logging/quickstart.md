@@ -25,6 +25,7 @@ Payment declined for card *******************
 Refund issued to **********************
 Login from ********** and ********************
 User update {"user":"u-42","ssn":"***********","dateOfBirth":"**********"} password=*******
+Account recovery {"user":"u-42", "securityAnswer" : "**********"}
 ```
 
 Add `-Dlogback.configurationFile=logback-runtime-dev-mode.xml` for the readable console format; the same lines then appear unmasked.

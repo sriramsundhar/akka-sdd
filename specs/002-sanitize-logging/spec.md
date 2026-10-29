@@ -57,8 +57,8 @@ A developer running the service locally requests the demo for a single category 
 
 **Acceptance Scenarios**:
 
-1. **Given** the service is running, **When** the developer requests category `all`, **Then** all six sample lines (five predefined + custom) are logged and a short confirmation is returned.
-2. **Given** the service is running, **When** the developer requests one of `email`, `phone`, `credit-card`, `iban`, `ip-address`, `custom`, **Then** only that category's sample line is logged.
+1. **Given** the service is running, **When** the developer requests category `all`, **Then** all seven sample lines (five predefined + two custom) are logged and a short confirmation is returned.
+2. **Given** the service is running, **When** the developer requests one of `email`, `phone`, `credit-card`, `iban`, `ip-address`, `custom`, **Then** only that category's sample line(s) are logged (one line each; two for `custom`).
 3. **Given** the service is running, **When** the developer requests an unknown category, **Then** the request is rejected as a bad request and nothing sensitive is logged.
 4. **Given** any successful request, **When** the confirmation is returned, **Then** it contains none of the raw sample values.
 
@@ -129,7 +129,7 @@ These identifiers are mandated by the requester (not design choices) and are rec
 
 ### Measurable Outcomes
 
-- **SC-001**: For all 6 sample lines, 100% of sensitive values are masked in the log output (production log format) of a local run of the `all` demo, with 0 raw sample values visible.
+- **SC-001**: For all 7 sample lines, 100% of sensitive values are masked in the log output (production log format) of a local run of the `all` demo, with 0 raw sample values visible.
 - **SC-002**: In every masked sample line, each mask has exactly the same character count as the value it replaces, and all non-sensitive text (including field names in the custom case) is character-for-character unchanged.
 - **SC-003**: 6 of 6 rules apply to log output only; 0 rules apply to model requests, tool results, or ad-hoc calls, and 0 are scoped to agents or roles.
 - **SC-004**: The full automated build passes with every listed test scenario (5 predefined-rule checks, ≥7 custom-rule scenarios) passing.

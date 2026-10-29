@@ -55,4 +55,11 @@ public class PredefinedLogSanitizersIntegrationTest extends TestKitSupport {
         .isEqualTo(
             "User update {\"user\":\"u-42\",\"ssn\":\"***********\",\"dateOfBirth\":\"**********\"} password=*******");
   }
+
+  @Test
+  public void sensitiveFieldEntryMasksSecurityAnswerWithSpacesAroundColon() {
+    assertThat(sanitize("log-sensitive-fields",
+            "Account recovery {\"user\":\"u-42\", \"securityAnswer\" : \"Blue Whale\"}"))
+        .isEqualTo("Account recovery {\"user\":\"u-42\", \"securityAnswer\" : \"**********\"}");
+  }
 }

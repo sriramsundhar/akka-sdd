@@ -22,7 +22,8 @@ public class LogSanitizationDemoEndpointIntegrationTest extends TestKitSupport {
       "2001:db8:0:0:0:0:0:1",
       "123-45-6789",
       "1990-01-31",
-      "hunter2");
+      "hunter2",
+      "Blue Whale");
 
   private StrictResponse<ByteString> get(String kind) {
     return httpClient.GET("/log-sanitization-demo/" + kind).invoke();
@@ -46,8 +47,13 @@ public class LogSanitizationDemoEndpointIntegrationTest extends TestKitSupport {
   }
 
   @Test
+  public void customKindLogsBothSensitiveFieldLines() {
+    assertThat(get("custom").body().utf8String()).startsWith("Logged 2 sample line(s)");
+  }
+
+  @Test
   public void allKindLogsEverySampleLine() {
-    assertThat(get("all").body().utf8String()).startsWith("Logged 6 sample line(s)");
+    assertThat(get("all").body().utf8String()).startsWith("Logged 7 sample line(s)");
   }
 
   @Test
