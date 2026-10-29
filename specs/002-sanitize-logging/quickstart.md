@@ -9,10 +9,10 @@ mvn verify   # unit + integration (SanitizationConfigScopeTest, SensitiveFieldLo
 
 ## See masking in real logs
 
-The dev-mode console format is **not** sanitized. Run with the runtime's production (JSON) log format:
+The SDK's dev-mode console format is **not** sanitized, so `pom.xml` sets `logback.configurationFile` to the runtime's JSON format (`logback.xml`), which is:
 
 ```shell
-SPIFFE_ENABLED=false mvn compile exec:java -Dlogback.configurationFile=logback.xml
+mvn compile exec:java
 curl localhost:9000/log-sanitization-demo/all
 ```
 
@@ -27,4 +27,4 @@ Login from ********** and ********************
 User update {"user":"u-42","ssn":"***********","dateOfBirth":"**********"} password=*******
 ```
 
-`SPIFFE_ENABLED=false` is needed for local runs on SDK 3.7.0 (see research R2).
+Add `-Dlogback.configurationFile=logback-runtime-dev-mode.xml` for the readable console format; the same lines then appear unmasked.

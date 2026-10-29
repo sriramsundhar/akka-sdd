@@ -8,9 +8,9 @@
 The service gets six log-only sanitizer entries: the five predefined groups plus one config-driven custom `LogSanitizer`. The custom one masks the values of named fields in JSON and `key=value` log text and keeps the names visible. An HTTP demo endpoint logs synthetic sample lines on demand. Tests cover config scope, every entry by name (via `SanitizerClient`), the custom sanitizer's edge cases, and the endpoint. The README gets observed before/after output.
 
 This requires upgrading the SDK to 3.7.0 (research R1). Probing showed three things the plan accounts for:
-- Masking only happens in the production JSON log layout, so local demo runs use `-Dlogback.configurationFile=logback.xml` (R3).
+- Masking only happens in the production JSON log layout, so `pom.xml` makes that layout the default for local runs and tests (R3, revised).
 - Three of the requested sample strings aren't fully masked by the built-in groups, so fully-masked formats are used and the gaps are documented (R4).
-- On 3.7.0, local runs need `SPIFFE_ENABLED=false` and can't use `-Dconfig.resource` (R2).
+- On 3.7.0, local runs can't use `-Dconfig.resource` (R2).
 
 ## Technical Context
 
@@ -92,9 +92,9 @@ No entities, views, workflows, consumers or agents.
 - **SensitiveFieldLogSanitizer**: see research R6 for the exact patterns, the same-instance fast path, the empty field list, and null handling. It has one public constructor `(SanitizerContext)`.
 - **Upgrade changes outside the sample**:
   - `pom.xml` parent version → 3.7.0.
-  - README local-dev command becomes `AGENT_MODEL_PROVIDER=litellm SPIFFE_ENABLED=false mvn compile exec:java`, since `-Dconfig.resource=application-dev.conf` no longer starts on 3.7.0 (R2).
+  - README local-dev command becomes `AGENT_MODEL_PROVIDER=litellm mvn compile exec:java`, since `-Dconfig.resource=application-dev.conf` no longer starts on 3.7.0 (R2).
   - The existing greeter tests must pass unchanged.
-- **README section**: what's configured; the before/after table re-captured from a real run of the final code with `-Dlogback.configurationFile=logback.xml`; the run command; a note that the dev-mode console isn't masked; the known format gaps (R4); the runtime's own lines being masked (e.g. the bind address); and the performance note (every `logs` entry runs on every log line — keep rule count and regex complexity low).
+- **README section**: what's configured; the before/after table re-captured from a real run of the final code (JSON log format, the pom default); the run command; a note that the dev-mode console isn't masked; the known format gaps (R4); the runtime's own lines being masked (e.g. the bind address); and the performance note (every `logs` entry runs on every log line — keep rule count and regex complexity low).
 
 ## Exit-condition checks (advisory, À la carte)
 

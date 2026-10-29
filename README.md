@@ -15,7 +15,7 @@ mvn compile
 To start your service locally, run:
 
 ```shell
-AGENT_MODEL_PROVIDER=litellm SPIFFE_ENABLED=false mvn compile exec:java
+AGENT_MODEL_PROVIDER=litellm mvn compile exec:java
 ```
 
 `application.conf` is the deployment config (what the Akka platform and the
@@ -24,16 +24,17 @@ default agent provider through a local `litellm` proxy instead of Vertex AI, so
 no cloud API key is needed; leaving it out runs with Vertex AI, which needs
 `VERTEX_AI_API_KEY` set.
 
-Two things changed with Akka SDK 3.7.0:
+Local runs and tests log in the runtime's JSON format (one JSON object per line),
+because `pom.xml` sets `logback.configurationFile` to `logback.xml`: that is the
+format that applies the log sanitizers (see "Log sanitization sample" below). For the
+readable, unsanitized console format, add
+`-Dlogback.configurationFile=logback-runtime-dev-mode.xml`.
 
-- `SPIFFE_ENABLED=false` is needed for local runs. The runtime now enables SPIFFE
-  workload identity by default and refuses to start without a trust domain, which
-  only the Akka platform provides.
-- `-Dconfig.resource=application-dev.conf` no longer starts the service: any
-  `-Dconfig.resource` override bypasses the runtime's dev-mode persistence defaults
-  and fails with "The Akka Persistence R2DBC database config scheme has changed".
-  `application-dev.conf` (which `include`s `application.conf` and sets the same
-  `litellm` override) is kept for reference by the container notes below.
+Since Akka SDK 3.7.0, `-Dconfig.resource=application-dev.conf` no longer starts the
+service: any `-Dconfig.resource` override bypasses the runtime's dev-mode persistence
+defaults and fails with "The Akka Persistence R2DBC database config scheme has
+changed". `application-dev.conf` (which `include`s `application.conf` and sets the
+same `litellm` override) is kept for reference by the container notes below.
 
 You can use the [Akka Console](https://console.akka.io) to create a project and see the status of your service.
 
@@ -119,13 +120,16 @@ Matched text is replaced by `*` of the same length. Output observed from a local
 ### Try it locally
 
 Masking is applied by the runtime's JSON log format, the one used on the Akka platform
-and by the standalone image. The plain-text console format used by default for local
-runs and tests is **not** sanitized, so select the JSON format explicitly:
+and by the standalone image. The SDK's plain-text dev console format is **not**
+sanitized, so `pom.xml` switches local runs and tests to the JSON format:
 
 ```shell
-SPIFFE_ENABLED=false mvn compile exec:java -Dlogback.configurationFile=logback.xml
+mvn compile exec:java
 curl localhost:9000/log-sanitization-demo/all
 ```
+
+Running with `-Dlogback.configurationFile=logback-runtime-dev-mode.xml` shows the same
+lines unmasked.
 
 Each sample line shows up masked in the `message` field, for example:
 

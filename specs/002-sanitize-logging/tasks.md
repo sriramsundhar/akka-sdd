@@ -254,3 +254,8 @@ Per CLAUDE.md, pause for user approval after each component and its test.
 - Exit-condition checks (advisory in À la carte) map to T004/T007/T012, T005/T013, T009, T015, and T020.
 - Don't change predefined masking behaviour; if output differs from data-model.md, report it.
 - Never widen `apply-at` to make something testable.
+
+## Follow-up (after user feedback)
+
+- A plain `mvn clean compile exec:java` showed unmasked logs, because the dev console format doesn't sanitize. Fix: `pom.xml` now sets `logback.configurationFile` to `logback.xml` (JSON, sanitized) by default. README, quickstart, research R2/R3 and plan were updated.
+- Correction: `SPIFFE_ENABLED=false` is not needed for plain local runs (T003/T018 wording above is superseded). The SPIFFE failure only occurs together with a `-Dconfig.resource` override.

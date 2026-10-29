@@ -12,16 +12,17 @@ All findings below were verified on 2026-10-28 against a scratch copy of this pr
 
 | Observed on 3.7.0 | Cause | Decision |
 |---|---|---|
-| Startup fails: *"SPIFFE is enabled but no trust domain is configured"* | Runtime 1.7.2 defaults `akka.runtime.spiffe.enabled = true` (env `SPIFFE_ENABLED`); trust domain comes from `kalix.meta.region`, which a local run doesn't set | Local run instructions set `SPIFFE_ENABLED=false`. No config change; platform deployments set the region. |
+| Startup fails: *"SPIFFE is enabled but no trust domain is configured"*, seen **only** together with a `-Dconfig.resource` override | Runtime 1.7.2 defaults `akka.runtime.spiffe.enabled = true` (env `SPIFFE_ENABLED`); the dev-mode defaults that a plain run gets are bypassed by the override | No action: plain `mvn compile exec:java` starts without `SPIFFE_ENABLED` (re-verified 2026-10-28 after a user report; the earlier "needed for local runs" conclusion was wrong). |
 | Startup fails with any `-Dconfig.resource=…` (even a two-line file that only includes `application.conf`): *"R2DBC database config scheme has changed…"* | The override bypasses the runtime's dev-mode persistence defaults on 3.7.0 | The README's local-dev command switches from `-Dconfig.resource=application-dev.conf` to the existing env override `AGENT_MODEL_PROVIDER=litellm` (already read by `application.conf`). `application-dev.conf` is left as is; its container note stays. |
-| Plain `SPIFFE_ENABLED=false mvn compile exec:java` | — | Starts fine. |
+| Plain `mvn compile exec:java` | — | Starts fine. |
 
 - **Not verified**: the standalone container image (`-Pstandalone`) at runtime. CI only builds it. It may hit the same SPIFFE default. This is recorded as a risk in plan.md and is not fixed speculatively.
 
 ## R3 — Where log masking actually happens
 
 - **Finding**: Only `kalix.runtime.LogbackJsonLayout` (the production `logback.xml` in the runtime jar) calls the sanitizer engine. The dev-mode console layout (`logback-runtime-dev-mode.xml`, which the parent pom sets for `exec:java` and tests) does **not**. Verified: with the six entries configured, the dev console printed every value unmasked. With `-Dlogback.configurationFile=logback.xml`, the same lines came out fully masked as JSON, including the custom class and SLF4J `{}` arguments.
-- **Decision**: The demo is run locally with `-Dlogback.configurationFile=logback.xml`. The README explains why: dev-mode console logs are not sanitized, and platform/standalone logs are.
+- **Decision (revised after user feedback)**: `pom.xml` sets the `logback.configurationFile` property to `logback.xml`, so plain `mvn compile exec:java` and tests log as JSON with masking applied. The readable console format remains available with `-Dlogback.configurationFile=logback-runtime-dev-mode.xml`. Originally the flag was opt-in, but a user running the plain command saw unmasked logs and chose JSON-by-default.
+- **Effect on tests**: test logs are JSON and masked too (verified: the endpoint test's sample lines appear masked in `mvn verify` output). Tests still verify masking through the sanitizer client, which doesn't depend on the log format.
 - **Alternatives considered**: (a) Add a project `logback` file that wraps the JSON layout in a pattern layout. Rejected: more config to own, and it duplicates the runtime file. (b) Assert masking from captured log output in tests. Rejected: the TestKit logs through the dev layout, so masking can't be observed there; the sanitizer client is the supported test path.
 
 ## R4 — Predefined group behavior and sample formats
