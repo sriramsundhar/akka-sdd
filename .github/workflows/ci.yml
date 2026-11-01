@@ -158,17 +158,22 @@ jobs:
           exit-code: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      # Runs even if the service image scan above fails on findings, which
+      # would otherwise skip this step (and its PR comment).
       - name: Scan standalone service image with Docker Scout
+        if: ${{ !cancelled() }}
         uses: docker/scout-action@v1.11.0
         with:
           command: cves,recommendations
           image: local://${{ env.SERVICE_NAME }}-standalone:latest
           to-latest: true
-          ignore-base: true
           only-severities: critical,high
           sarif-file: sarif.standalone.output.json
           summary: true
           write-comment: true
+          # Scout's comment is keyed by command + workflow, not image; keep
+          # the service image's comment instead of replacing it.
+          keep-previous-comments: true
           exit-on: vulnerability
           exit-code: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
