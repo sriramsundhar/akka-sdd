@@ -28,3 +28,7 @@ db.mv.db
 akka-context/
 .claude/settings.local.json
 
+
+# Java build output
+*.class
+*.jar

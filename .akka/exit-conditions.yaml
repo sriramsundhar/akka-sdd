@@ -1,4 +1,5 @@
-mode: enforced
+mode: a-la-carte
+ecs: honored
 developer:
 - id: FUNC-GREETER-ROTATION-NO-REPEAT
   tier: product
